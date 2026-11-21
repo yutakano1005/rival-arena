@@ -179,6 +179,30 @@
   #dashpips{position:absolute;left:50%;top:calc(50% + 30px);transform:translateX(-50%);display:flex;gap:5px}
   #dashpips i{display:block;width:16px;height:4px;border-radius:2px;background:rgba(255,255,255,.85);box-shadow:0 0 3px #000}
   #dashpips i.e{background:rgba(255,255,255,.15)}
+  .tbtns{display:flex;flex-wrap:wrap;justify-content:center;gap:4px;margin-top:6px}
+  .tchar{display:inline-flex;align-items:center;gap:6px;padding-left:8px}
+  .tchar img{height:42px;margin:-6px 0}
+  .tback{font:inherit;font-size:13px;font-weight:800;color:#eee;background:#1d2433;border:2px solid #3a4560;border-radius:8px;padding:4px 10px;cursor:pointer}
+  .tback:hover{border-color:#ffd166;color:#ffd166}
+  .stHead{gap:14px}
+  .mychar{display:flex;align-items:center;gap:10px;justify-content:center;margin:12px 0 0}
+  .mychar img{height:96px}
+  .mychar b{display:block;font-size:16px;margin-bottom:4px}
+  .mychar button{font:inherit;font-size:12px;font-weight:800;color:#eee;background:#1d2433;border:2px solid #3a4560;border-radius:8px;padding:4px 10px;cursor:pointer}
+  .chara{display:flex;gap:24px;align-items:flex-start;justify-content:center;flex-wrap:wrap}
+  .chara .cv{position:sticky;top:0;text-align:center}
+  .charaCanvas{width:340px;height:440px;border-radius:16px;background:radial-gradient(circle at 50% 40%,#2b3550,#0c1018 75%);cursor:grab;display:block}
+  .cpanel{width:440px;max-width:100%}
+  .cpanel h2{margin:0 0 10px;font-size:28px}
+  .csec{font-size:14px;font-weight:900;margin:12px 0 6px;color:#ffd166}
+  .copts{display:flex;flex-wrap:wrap;gap:6px}
+  .copts button{font:inherit;font-size:14px;font-weight:800;color:#ddd;background:#1d2433;border:2px solid #3a4560;border-radius:8px;padding:5px 12px;cursor:pointer}
+  .copts button.on{border-color:#ffd166;color:#fff;background:#3a3020}
+  .cpal{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+  .cpal i{width:28px;height:28px;border-radius:50%;cursor:pointer;border:3px solid rgba(255,255,255,.2);box-shadow:0 2px 4px #0008}
+  .cpal i.on{border-color:#fff;transform:scale(1.15)}
+  .cpal input[type=color]{width:34px;height:30px;border:none;background:none;cursor:pointer;padding:0}
+  .crow{display:flex;gap:4px;justify-content:center}
   .onl{max-width:460px;margin:16px auto 0;text-align:left}
   .orow{display:flex;align-items:center;gap:10px;margin:8px 0}
   .orow span{width:110px;font-weight:800;font-size:14px}
@@ -193,6 +217,14 @@
   @keyframes spn{to{transform:rotate(360deg)}}
   #pracBtn{display:block;width:100%;margin:8px 0 0;font:inherit;font-size:16px;font-weight:900;padding:8px;border-radius:8px;cursor:pointer;color:#7bdff2;background:#10202a;border:2px solid #7bdff2}
   #pracBtn:hover{filter:brightness(1.2)}
+  .kbgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:14px auto 4px;max-width:640px;text-align:left}
+  .kbrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;border-radius:8px;background:#151b27;cursor:pointer;border:2px solid transparent}
+  .kbrow:hover{border-color:#3a4560}
+  .kbrow.wait{border-color:#ffd166;animation:kbBlink .7s infinite alternate}
+  .kbrow span{font-size:15px}
+  .kbrow b{min-width:70px;text-align:center;padding:3px 10px;border-radius:6px;background:#2a3346;color:#ffd166;font-size:15px}
+  @keyframes kbBlink{from{background:#151b27}to{background:#2b2a1c}}
+  @media (max-width:640px){ .kbgrid{grid-template-columns:1fr} }
   .pbtn{font:inherit;font-size:18px;font-weight:900;padding:10px 24px;margin:16px 8px 0;border-radius:8px;cursor:pointer;color:#eee;background:#1d2433;border:2px solid #3a4560}
   .dmgn{position:absolute;font-weight:900;text-shadow:0 0 3px #000,0 2px 4px #000;transform:translate(-50%,-50%);white-space:nowrap}
   #ovbox.perk{max-width:980px}
@@ -846,8 +878,18 @@ function playBuf(buf,vol,rate,dest,delay=0){ if(!actx) return; const s=actx.crea
 // pos を渡すとその位置から聞こえる（ribrの銃声など）
 const sfxShot=(wp,vol,far=0,pos=null)=>{ if(!actx) return; const v=vol, p=rand(0.94,1.06), n=wp.name;
   const S=pos?spatial(pos.x,pos.z,SHOT):SHOT, O=pos?spatial(pos.x,pos.z,OUT):undefined;
-  if(n==='クロスボウ'){   // 弦が弾ける「ビュン」
-    beep(210*p,0.22,v*0.7,'triangle',0,95,O); noise('bandpass',3200,700,0.1,v*0.55,2.5,0,O); noise('bandpass',900,400,0.05,v*0.3,3,0.02,O); beep(70,0.12,v*0.6,'sine',0,40,O); return; }
+  if(n==='クロスボウ'){   // 引き金が外れる「カチッ」→ 弦がたたく「バシッ！」→ 弦が震える「ビィィン」＋矢の風切り
+    noise('highpass',5000,3000,0.008,v*0.5,1,0,O);                                  // ラッチが外れる
+    noise('bandpass',1700*p,500,0.06,v*1.3,1.1,0.006,S);                            // 弦が台をたたく「バシッ」
+    noise('highpass',3000,1500,0.015,v*0.7,0.8,0.006,S);
+    beep(150*p,0.14,v*1.2,'sine',0.006,55,S);                                       // リムの反動「ドッ」
+    { const t=actx.currentTime+0.01, o=actx.createOscillator(), f=actx.createBiquadFilter(), g=actx.createGain();   // 弦の振動「ビィィン」
+      o.type='sawtooth'; o.frequency.setValueAtTime(118*p,t); o.frequency.exponentialRampToValueAtTime(96*p,t+0.4);
+      f.type='lowpass'; f.Q.value=3; f.frequency.setValueAtTime(1400,t); f.frequency.exponentialRampToValueAtTime(260,t+0.4);
+      g.gain.setValueAtTime(v*0.32,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.45);
+      o.connect(f).connect(g).connect(O||OUT); o.start(t); o.stop(t+0.5); }
+    noise('bandpass',700,2800,0.22,v*0.4,1.2,0.015,O);                              // 矢が飛んでいく「ヒュッ」
+    noise('bandpass',2200,1400,0.04,v*0.25,4,0.35,O); return; }                     // 機構が戻る「カタッ」
   if(n==='レールガン'){   // 電磁加速の「キュイーン…バシュッ」
     beep(300*p,0.12,v*0.25,'sawtooth',0,2400,O); noise('highpass',7000,2500,0.3,v*0.7,1,0.08,S);
     beep(2400*p,0.45,v*0.3,'sawtooth',0.08,90,O); beep(55,0.6,v*1.3,'sine',0.08,25,S); noise('lowpass',3000,100,0.5,v*0.8,0.7,0.08,S); return; }
@@ -1069,6 +1111,9 @@ function B(g,r0,u0,u1,v,mat,x=0,seg=18,r1=r0,open=false){
 const RB=(w,h,l,r)=>{ r=Math.min(r,Math.min(w,h,l)/2-1e-5); return r>0.0002?new RoundedBoxGeometry(w,h,l,2,r):new THREE.BoxGeometry(w,h,l); };
 function X(g,w,h,l,u,v,mat,x=0,r=0.0015){ const m=mesh(g,RB(w,h,l,r),mat); m.position.set(x,v,-u); return m; }
 function hole(g,r,u,v,x=0){ const m=mesh(g,new THREE.CircleGeometry(r,18),W.hole); m.position.set(x,v,-u-0.0005); m.rotation.y=Math.PI; return m; }
+// 長さ1の棒を a→b に合わせて置く（クロスボウの弦など、動かす棒用）
+function setRod(m,a,b){ const d=new THREE.Vector3().subVectors(b,a), L=d.length(); m.position.copy(a).addScaledVector(d,0.5); m.quaternion.setFromUnitVectors(_up,d.divideScalar(L||1)); m.scale.set(1,L,1); }
+const BOW_COCK=new THREE.Vector3(0.14,0.017,0), BOW_REST=new THREE.Vector3(0.336,0.0,0);
 function rod(g,a,b,r,mat,r2=r,seg=10){ const d=new THREE.Vector3().subVectors(b,a), L=d.length(); const m=mesh(g,new THREE.CylinderGeometry(r2,r,L,seg),mat); m.position.copy(a).addScaledVector(d,0.5); m.quaternion.setFromUnitVectors(_up,d.normalize()); return m; }
 function cap(g,a,b,r,mat){ const d=new THREE.Vector3().subVectors(b,a), L=d.length(); const m=mesh(g,new THREE.CapsuleGeometry(r,Math.max(0.0005,L),4,10),mat); m.position.copy(a).addScaledVector(d,0.5); m.quaternion.setFromUnitVectors(_up,d.normalize()); return m; }
 function chain(g,pts,w,h,mat){ for(let i=0;i<pts.length-1;i++){ const a=pts[i],b=pts[i+1]; const m=mesh(g,RB(w,h,a.distanceTo(b)*1.05,0.002),mat); m.position.copy(a).lerp(b,0.5); m.quaternion.setFromUnitVectors(_fz,new THREE.Vector3().subVectors(b,a).normalize()); } }
@@ -1356,13 +1401,17 @@ const GUN_BUILD={
       geo.translate(0,0,-0.004); geo.rotateX(-Math.PI/2); uvScale(geo,8);
       const lm=mesh(g,geo,W.blk); lm.position.y=-0.002; lm.scale.x=s;
       const cm=mesh(g,new THREE.CylinderGeometry(0.013,0.013,0.01,20),W.gm); cm.position.set(s*0.263,-0.002,-0.352);
-      rod(g,V3(0.352,-0.002,s*0.274),V3(0.14,0.017,0),0.0011,W.string);
+      // 弦（撃つと前に戻る → 毎フレーム両端の位置を変えられるよう長さ1の棒を伸縮させる）
+      const sm=mesh(g,new THREE.CylinderGeometry(0.0012,0.0012,1,8),W.string), tipP=V3(0.352,-0.002,s*0.274);
+      (g.userData.bowStr||(g.userData.bowStr=[])).push({m:sm,tip:tipP}); setRod(sm,tipP,BOW_COCK);
       rod(g,V3(0.35,-0.002,s*0.252),V3(0.38,0.0,-s*0.03),0.0009,W.string);
     }
     X(g,0.034,0.02,0.05,0.14,0.012,W.blk,0,0.003);
+    const nb=g.children.length;   // ここから矢（撃つと消え、リロードで置くと現れる）
     B(g,0.0035,0.14,0.43,0.018,W.blk,0,10); B(g,0.0045,0.43,0.465,0.018,W.steel,0,3,0.0002);
     const vm=new THREE.MeshStandardMaterial({color:wp.color,roughness:0.6});
     for(let i=0;i<3;i++){ const a=i/3*Math.PI*2+Math.PI/2; X(g,0.0008,0.01,0.035,0.17,0.018+Math.sin(a)*0.007,vm,Math.cos(a)*0.007,0).rotation.z=a-Math.PI/2; }
+    g.userData.bolt=g.children.slice(nb);
     const st=mesh(g,new THREE.TorusGeometry(0.03,0.004,8,20,Math.PI),W.blk); st.rotation.z=Math.PI; st.position.set(0,-0.008,-0.41);
     X(g,0.02,0.012,0.04,0.08,0.02,W.blk,0,0.002); redDot(g,0.08,0.052);
     pgrip(g,0.02,-0.012);
@@ -1475,7 +1524,8 @@ function makeGunModel(wp,hands){
   }
   const trigF=g.children.find(c=>c.userData.trigFinger)||null, trigM=[];
   g.traverse(c=>{ if(c.userData.trig){ c.userData.x0=c.position.x; trigM.push(c); } });
-  return {group:g,tip:V3(b.tip[0],b.tip[1]),spin:b.spin||null,sight:b.sight,b,offHand,trigF,trigM};
+  const bow=g.userData.bowStr?{str:g.userData.bowStr,bolt:g.userData.bolt||[],released:false,relT:9}:null;
+  return {group:g,tip:V3(b.tip[0],b.tip[1]),spin:b.spin||null,sight:b.sight,b,offHand,trigF,trigM,bow};
 }
 
 // ---------- 近接武器：刃は +y 方向、持ち手が原点 ----------
@@ -1645,23 +1695,41 @@ function makeUtilModel(u){
 }
 
 // ================= ライバルのモデル =================
-function buildRival(){
+// ----- キャラの見た目（キャラクター作成で変えられる） -----
+// jacket:服 pants:ズボン skin:肌 gear:装備・髪・帽子 eye:目/バイザーの光 head:頭 body:体の装備 build:体格
+const RIBR_LOOK={jacket:'#6e1622',pants:'#23262c',skin:'#b98a6a',gear:'#151618',eye:'#ff2244',head:'helmet',body:'vest',build:'normal'};
+function buildRival(look=RIBR_LOOK,parent=scene){
+  const L={...RIBR_LOOK,...look};
   const root=new THREE.Group(), pivot=new THREE.Group(); root.add(pivot);
-  const jacket=new THREE.MeshStandardMaterial({color:0x6e1622,roughness:0.75});
-  const pants=new THREE.MeshStandardMaterial({color:0x23262c,roughness:0.85});
+  const jacket=new THREE.MeshStandardMaterial({color:L.jacket,roughness:0.75});
+  const pants=new THREE.MeshStandardMaterial({color:L.pants,roughness:0.85});
   const dark=new THREE.MeshStandardMaterial({color:0x151618,roughness:0.45,metalness:0.5});
-  const skin=new THREE.MeshStandardMaterial({color:0xb98a6a,roughness:0.6});
-  const visor=new THREE.MeshStandardMaterial({color:0xff2244,emissive:0xff2244,emissiveIntensity:3});
+  const gear=new THREE.MeshStandardMaterial({color:L.gear,roughness:L.head==='hair'?0.8:0.45,metalness:L.head==='helmet'?0.5:0.05});
+  const skin=new THREE.MeshStandardMaterial({color:L.skin,roughness:0.6});
+  const visor=new THREE.MeshStandardMaterial({color:L.eye,emissive:L.eye,emissiveIntensity:3});
   const add=(par,geo,mat,x,y,z)=>{const m=new THREE.Mesh(geo,mat);m.position.set(x,y,z);m.castShadow=m.receiveShadow=true;par.add(m);return m;};
   const legs=[];
   for(const s of [-1,1]){const hip=new THREE.Group();hip.position.set(0,0.92,s*0.11);pivot.add(hip);
     add(hip,new THREE.CapsuleGeometry(0.085,0.62,4,8),pants,0,-0.44,0); add(hip,new THREE.BoxGeometry(0.27,0.1,0.13),dark,0.05,-0.87,0); legs.push(hip);}
   add(pivot,new THREE.CapsuleGeometry(0.2,0.42,4,12),jacket,0,1.27,0);
-  add(pivot,new THREE.BoxGeometry(0.3,0.42,0.44),dark,0.02,1.3,0);
+  // 体の装備
+  if(L.body==='vest') add(pivot,new THREE.BoxGeometry(0.3,0.42,0.44),gear,0.02,1.3,0);
+  if(L.body==='hoodie'){ const hd=add(pivot,new THREE.SphereGeometry(0.17,16,12,0,Math.PI*2,0,Math.PI/2),jacket,-0.1,1.5,0); hd.rotation.z=1.2; hd.scale.set(1,0.7,1.1);
+    add(pivot,new THREE.BoxGeometry(0.06,0.14,0.26),jacket,0.19,1.12,0); }
+  if(L.body==='pack'){ add(pivot,new THREE.BoxGeometry(0.2,0.42,0.32),gear,-0.25,1.3,0); add(pivot,new THREE.BoxGeometry(0.1,0.16,0.26),gear,-0.37,1.2,0);
+    for(const s of [-1,1]) add(pivot,new THREE.BoxGeometry(0.42,0.05,0.04),gear,0.02,1.42,s*0.12).rotation.z=-0.2; }
   add(pivot,new THREE.CylinderGeometry(0.06,0.07,0.1,10),skin,0,1.6,0);
   add(pivot,new THREE.SphereGeometry(0.13,20,16),skin,0,1.73,0);
-  add(pivot,new THREE.SphereGeometry(0.148,20,12,0,Math.PI*2,0,Math.PI/2),dark,0,1.75,0);
-  add(pivot,new THREE.BoxGeometry(0.05,0.045,0.21),visor,0.115,1.74,0);
+  // 頭
+  const eyes=()=>{ for(const s of [-1,1]) add(pivot,new THREE.SphereGeometry(0.022,10,8),visor,0.118,1.74,s*0.048); };
+  if(L.head==='helmet'){ add(pivot,new THREE.SphereGeometry(0.148,20,12,0,Math.PI*2,0,Math.PI/2),gear,0,1.75,0); add(pivot,new THREE.BoxGeometry(0.05,0.045,0.21),visor,0.115,1.74,0); }
+  if(L.head==='cap'){ add(pivot,new THREE.SphereGeometry(0.142,20,12,0,Math.PI*2,0,Math.PI/2),gear,0,1.77,0); add(pivot,new THREE.BoxGeometry(0.16,0.014,0.2),gear,0.14,1.78,0); eyes(); }
+  if(L.head==='hair'){ add(pivot,new THREE.SphereGeometry(0.138,16,10,0,Math.PI*2,0,Math.PI/2),gear,-0.01,1.76,0);
+    for(let i=0;i<9;i++){ const a=i/9*Math.PI*2, c=add(pivot,new THREE.ConeGeometry(0.05,0.17,8),gear,-0.02+Math.cos(a)*0.07,1.86,Math.sin(a)*0.08); c.rotation.set(Math.sin(a)*0.6,0,-Math.cos(a)*0.6-0.3); } eyes(); }
+  if(L.head==='beanie'){ const b=add(pivot,new THREE.SphereGeometry(0.146,20,12,0,Math.PI*2,0,Math.PI/2),gear,-0.01,1.77,0); b.scale.y=1.25;
+    const r=add(pivot,new THREE.TorusGeometry(0.142,0.025,8,24),gear,-0.01,1.78,0); r.rotation.x=Math.PI/2; add(pivot,new THREE.SphereGeometry(0.04,10,8),gear,-0.01,1.97,0); eyes(); }
+  if(L.head==='none') eyes();
+  if(L.build==='slim') pivot.scale.set(0.9,1,0.88); else if(L.build==='big') pivot.scale.set(1.1,1.02,1.16);
   // 腕：肩→ひじ→手首と人間らしい太さ・関節で銃を構える（右手はグリップ、左手は銃の前を支える）
   const glove=new THREE.MeshStandardMaterial({color:0x1d1e21,roughness:0.8});
   const V=(x,y,z)=>new THREE.Vector3(x,y,z);
@@ -1690,10 +1758,17 @@ function buildRival(){
   add(gunG,new THREE.BoxGeometry(0.62,0.1,0.07),dark,0.55,1.4,0.02);
   add(gunG,new THREE.CylinderGeometry(0.018,0.018,0.25,10),dark,0.96,1.42,0.02).rotation.z=Math.PI/2;
   const muzzle=new THREE.Object3D(); muzzle.position.set(1.1,1.42,0.02); gunG.add(muzzle);
-  scene.add(root);
+  parent.add(root);
   return {root,pivot,legs,muzzle,gunG,hand,melee:null,gunArms,upper,armR,armL};
 }
-const rivalModel=buildRival();
+let rivalModel=buildRival(), rivalLookKey=JSON.stringify(RIBR_LOOK);
+// 相手の見た目を変える（変わったときだけ作り直す。銃や近接武器は buildViewmodels で持たせ直す）
+function setRivalLook(look){
+  const k=JSON.stringify(look||RIBR_LOOK); if(k===rivalLookKey) return; rivalLookKey=k;
+  const vis=rivalModel.root.visible; scene.remove(rivalModel.root);
+  rivalModel.root.traverse(o=>{ if(o.geometry) o.geometry.dispose(); });
+  rivalModel=buildRival(look||RIBR_LOOK); rivalModel.root.visible=vis;
+}
 
 // ================= リロード演出（手の動き・薬莢・音） =================
 let reloadAnim=null, debris=[];
@@ -2069,7 +2144,7 @@ function buildViewmodels(){
   const mm=makeMeleeModel(player.melee), um=makeUtilModel(player.util);
   for(const o of [gm.group,mm,um]) o.traverse(c=>{c.castShadow=false;});
   vmRoot.add(gm.group,mm,um);
-  vm={gun:gm.group,spin:gm.spin,melee:mm,util:um,ads:new THREE.Vector3(0,-gm.sight,-0.26),b:gm.b,offHand:gm.offHand,trigF:gm.trigF,trigM:gm.trigM,pull:0};
+  vm={gun:gm.group,spin:gm.spin,melee:mm,util:um,ads:new THREE.Vector3(0,-gm.sight,-0.26),b:gm.b,offHand:gm.offHand,trigF:gm.trigF,trigM:gm.trigM,pull:0,bow:gm.bow};
   // リロード用の左手と、手に持つ弾倉など
   const rk=reloadKind(player.weap);
   vm.rhand=makeReloadHand(); vm.rhand.visible=false; gm.group.add(vm.rhand);
@@ -2362,7 +2437,7 @@ function startRound(){
   applyHabitAI(rival);
   yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0;
   clearRoundObjects(); setupPickups(); dmgNums.forEach(n=>n.el.remove()); dmgNums=[];
-  rivalModel.pivot.rotation.set(0,0,0);
+  setRivalLook(RIBR_LOOK); rivalModel.pivot.rotation.set(0,0,0);
   buildViewmodels(); buildSlots();
   $('modtag').style.display=curMod?'block':'none'; if(curMod) $('modtag').textContent=`${curMod.icon} 特別ルール：${curMod.name}`;
   state='countdown'; stateT=curMod?4:3; showBanner(roundBanner());
@@ -2434,7 +2509,7 @@ function onNet(m){
       toast(`🌐 <b>${net.oppName}</b> と接続しました！装備を選んで「準備OK」を押してね`); break;
     case 'err': setNetStatus(m.m,'err'); { const w=net.ws; net=null; try{ w.close(); }catch(e){} } break;
     case 'left': case 'bye': netLost(`${net.oppName||'相手'} が退出しました`); break;
-    case 'ready': net.ready.opp=true; net.oppLo=m.lo; if(state==='select'){ const st=ovbox.scrollTop; renderSelect(); ovbox.scrollTop=st; } netMaybeStart(); break;
+    case 'ready': net.ready.opp=true; net.oppLo=m.lo; net.oppLook=sanitizeLook(m.look); if(state==='select'){ const st=ovbox.scrollTop; renderSelect(); ovbox.scrollTop=st; } netMaybeStart(); break;
     case 'unready': net.ready.opp=false; break;
     case 'start': if(net.role==='guest') startOnlineMatch(m); break;
     case 's': net.tgt=m;
@@ -2463,7 +2538,7 @@ function onNet(m){
 function netReady(){
   const open=GUNS.map((_,i)=>i).filter(i=>isOpen(GUNS[i]));
   net.meLo={gun:sel.gun>=0?sel.gun:randOf(open.length?open:[0]),melee:sel.melee,util:sel.util};
-  net.ready.me=true; netRaw({t:'ready',lo:net.meLo});
+  net.ready.me=true; netRaw({t:'ready',lo:net.meLo,look:myLook});
   netWait(`${net.oppName} の準備を待っています…`); netMaybeStart();
 }
 function netMaybeStart(){
@@ -2490,7 +2565,7 @@ function netStartRound(r,modId){
   finishFighter(player,matchPerks.p); finishFighter(rival,matchPerks.r);
   yaw=host?-Math.PI/2:Math.PI/2; pitch=0; deathCam=0; kick=0;
   clearRoundObjects(); setupPickups(); dmgNums.forEach(n=>n.el.remove()); dmgNums=[];
-  rivalModel.pivot.rotation.set(0,0,0);
+  setRivalLook(net.oppLook); rivalModel.pivot.rotation.set(0,0,0);
   buildViewmodels(); buildSlots(); $('rname').textContent=rivalName();
   $('modtag').style.display=curMod?'block':'none'; if(curMod) $('modtag').textContent=`${curMod.icon} 特別ルール：${curMod.name}`;
   Object.assign(net,{dead:{host:null,guest:null},deadT:null,sentDead:false,tgt:null,perks:{me:false,opp:false},sendT:0});
@@ -2512,7 +2587,7 @@ function netShot(m){
   const e=rival, wp=e.weap;
   for(const d of m.d) spawnBullet(e,m.o[0],m.o[1],m.o[2],d[0],d[1],d[2],wp);
   const d=dist(e,player)||1;
-  rivalFlashT=0.05; sfxShot(wp,0.34*clamp(1-d/70,0.2,1),clamp(d/45,0,0.85),e);
+  rivalFlashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.34*clamp(1-d/70,0.2,1),clamp(d/45,0,0.85),e);
   if(rivalModel.root.visible){ rivalModel.muzzle.updateWorldMatrix(true,false);
     const mp=rivalModel.muzzle.getWorldPosition(new THREE.Vector3()), md=new THREE.Vector3(Math.cos(e.angle),0,Math.sin(e.angle));
     muzzleSparks(wp,mp,md,1.3); rivalCasing(e,wp,d); }
@@ -2561,6 +2636,74 @@ function wireOnlineMenu(){
   $('jnRoom').onclick=ev=>{ ev.stopPropagation(); save(); const c=$('cdIn').value.trim().toUpperCase(); if(c.length<4){ setNetStatus('部屋コードを入力してください','err'); return; } netConnect(serverURL(),{t:'join',code:c}); };
   $('netBack').onclick=ev=>{ ev.stopPropagation(); netClose(); state='title'; showOverlay('title'); };
   for(const id of ['nmIn','svIn','cdIn']) if($(id)) $(id).onclick=ev=>ev.stopPropagation();
+}
+
+// ================= キャラクター作成 =================
+// 作ったキャラは、オンライン対戦で相手の画面に「あなた」として映る。一人用ではタイトル・装備選択・結果画面に出る
+const LOOK_OPTS={
+  head:[['helmet','ヘルメット'],['cap','キャップ'],['hair','ツンツン髪'],['beanie','ニット帽'],['none','なし']],
+  body:[['vest','防弾ベスト'],['hoodie','パーカー'],['pack','バックパック'],['none','なし']],
+  build:[['slim','細め'],['normal','ふつう'],['big','がっしり']],
+};
+const LOOK_OPT_LABEL={head:'頭',body:'体の装備',build:'体格'};
+const LOOK_PAL={
+  jacket:['#2a5c8f','#6e1622','#2f6b3a','#d9822b','#5b3a8c','#1e1e22','#e8e8e8','#c9a227','#0e8a8a','#d94f8a'],
+  pants:['#23262c','#3b4a5e','#4a3b2a','#5a5f3a','#7a7d82','#1a2a4a','#6b1f1f','#e0e0e0'],
+  skin:['#f3d2b3','#e0b48e','#c99470','#b98a6a','#8d5a3b','#5c3a24'],
+  gear:['#151618','#3a3d42','#e0e0e0','#5a4632','#2f4f2f','#c9a227','#8a1c1c','#ff7ac8','#3a6ea5','#7a3fb0'],
+  eye:['#ff2244','#4cc9f0','#06d6a0','#ffd166','#c77dff','#ffffff','#ff8c42'],
+};
+const LOOK_LABEL={jacket:'服の色',pants:'ズボンの色',skin:'肌の色',gear:'装備・髪・帽子の色',eye:'目・バイザーの光'};
+const LOOK_DEF={jacket:'#2a5c8f',pants:'#23262c',skin:'#e0b48e',gear:'#151618',eye:'#4cc9f0',head:'helmet',body:'vest',build:'normal'};
+// 通信で届いた見た目も、ここを通して安全な値だけ使う
+function sanitizeLook(o){ const L={...LOOK_DEF}; if(!o||typeof o!=='object') return L;
+  for(const k of Object.keys(LOOK_PAL)) if(/^#[0-9a-fA-F]{6}$/.test(o[k]||'')) L[k]=o[k];
+  for(const k of Object.keys(LOOK_OPTS)) if(LOOK_OPTS[k].some(x=>x[0]===o[k])) L[k]=o[k];
+  return L; }
+let myLook={...LOOK_DEF}; try{ myLook=sanitizeLook(JSON.parse(localStorage.getItem('rivalArenaLook')||'null')); }catch(e){}
+function applySleeve(){ W.sleeve.color.set(myLook.jacket).multiplyScalar(2.2); }   // 一人称の袖も服の色に
+applySleeve();
+function saveLook(){ try{ localStorage.setItem('rivalArenaLook',JSON.stringify(myLook)); }catch(e){} applySleeve(); charaThumb=null; }
+let charaR=null, charaS=null, charaC=null, charaM=null, charaRot=0.6, charaThumb=null, charaBack='title', charaDrag=null;
+function charaRenderer(){
+  if(charaR) return charaR;
+  charaR=new THREE.WebGLRenderer({antialias:true,alpha:true,preserveDrawingBuffer:true});
+  charaR.setPixelRatio(Math.min(devicePixelRatio,2)); charaR.outputColorSpace=THREE.SRGBColorSpace; charaR.toneMapping=THREE.ACESFilmicToneMapping; charaR.setClearColor(0,0);
+  charaS=new THREE.Scene(); charaS.add(new THREE.HemisphereLight(0xdfe8ff,0x3a3028,1.6));
+  const d=new THREE.DirectionalLight(0xffffff,2.6); d.position.set(3,4,3); charaS.add(d);
+  const r=new THREE.DirectionalLight(0x9fc0ff,1.3); r.position.set(-3,2,-3); charaS.add(r);
+  const fl=new THREE.Mesh(new THREE.CircleGeometry(0.75,40),new THREE.MeshStandardMaterial({color:0x2a3142,roughness:0.9})); fl.rotation.x=-Math.PI/2; charaS.add(fl);
+  charaC=new THREE.PerspectiveCamera(30,1,0.1,50); charaC.position.set(4.2,1.25,0); charaC.lookAt(0,0.98,0);
+  return charaR; }
+function charaSetModel(){ charaRenderer(); if(charaM) charaS.remove(charaM.root); charaM=buildRival(myLook,charaS); }
+function charaDraw(w,h){ const r=charaRenderer(); if(!charaM) charaSetModel(); r.setSize(w,h,false); charaC.aspect=w/h; charaC.updateProjectionMatrix(); charaM.root.rotation.y=charaRot; r.render(charaS,charaC); }
+function charaThumbURL(){ if(charaThumb) return charaThumb; charaSetModel(); const rr=charaRot; charaRot=0.55; charaDraw(200,240); charaRot=rr; charaThumb=charaR.domElement.toDataURL(); return charaThumb; }
+function openChara(back){ charaBack=back||'title'; state='chara'; showOverlay('chara'); }
+function renderChara(){
+  ovbox.className='wide';
+  ovbox.innerHTML=`<div class="chara"><div class="cv"><div id="cvwrap"></div><div class="hint">ドラッグで回転</div></div><div class="cpanel">
+    <h2>👤 キャラクター作成</h2><div class="hint" style="text-align:left;margin:-6px 0 8px">オンライン対戦では、相手の画面にこの姿で映ります</div>
+    <div class="orow"><span>名前</span><input id="chName" maxlength="16" value="${myName.replace(/"/g,'')}"></div>
+    ${Object.keys(LOOK_OPTS).map(k=>`<div class="csec">${LOOK_OPT_LABEL[k]}</div><div class="copts">${LOOK_OPTS[k].map(([v,l])=>`<button data-k="${k}" data-v="${v}" class="${myLook[k]===v?'on':''}">${l}</button>`).join('')}</div>`).join('')}
+    ${Object.keys(LOOK_PAL).map(k=>`<div class="csec">${LOOK_LABEL[k]}</div><div class="cpal">${LOOK_PAL[k].map(c=>`<i data-k="${k}" data-v="${c}" style="background:${c}" class="${myLook[k].toLowerCase()===c?'on':''}"></i>`).join('')}<input type="color" data-k="${k}" value="${myLook[k]}" title="好きな色"></div>`).join('')}
+    <div class="crow"><button id="chRand" class="pbtn">🎲 おまかせ</button><button id="chReset" class="pbtn">最初に戻す</button></div>
+    <button id="chDone" class="obtn">決定</button>
+  </div></div>`;
+  const cv=charaRenderer().domElement; cv.className='charaCanvas'; $('cvwrap').appendChild(cv);
+  const set=(k,v)=>{ myLook[k]=v; myLook=sanitizeLook(myLook); saveLook(); charaSetModel(); beep(700,0.04,0.06,'square');
+    ovbox.querySelectorAll(`[data-k="${k}"]`).forEach(b=>{ if(b.tagName==='INPUT') b.value=myLook[k]; else b.classList.toggle('on',b.dataset.v.toLowerCase()===String(myLook[k]).toLowerCase()); }); };
+  ovbox.querySelectorAll('button[data-k],i[data-k]').forEach(b=>b.onclick=ev=>{ ev.stopPropagation(); set(b.dataset.k,b.dataset.v); });
+  ovbox.querySelectorAll('input[type=color]').forEach(b=>{ b.onclick=ev=>ev.stopPropagation(); b.oninput=()=>set(b.dataset.k,b.value); });
+  $('chName').onclick=ev=>ev.stopPropagation();
+  $('chName').onchange=()=>{ myName=$('chName').value.trim()||'プレイヤー'; try{ localStorage.setItem('rivalArenaName',myName); }catch(e){} };
+  $('chRand').onclick=ev=>{ ev.stopPropagation(); for(const k of Object.keys(LOOK_PAL)) myLook[k]=randOf(LOOK_PAL[k]); for(const k of Object.keys(LOOK_OPTS)) myLook[k]=randOf(LOOK_OPTS[k])[0]; saveLook(); renderChara(); };
+  $('chReset').onclick=ev=>{ ev.stopPropagation(); myLook={...LOOK_DEF}; saveLook(); renderChara(); };
+  $('chDone').onclick=ev=>{ ev.stopPropagation(); $('chName').onchange(); beep(880,0.1,0.1,'triangle'); state=charaBack; showOverlay(charaBack); };
+  cv.onpointerdown=ev=>{ charaDrag=ev.clientX; cv.setPointerCapture(ev.pointerId); };
+  cv.onpointermove=ev=>{ if(charaDrag!=null){ charaRot+=(ev.clientX-charaDrag)*0.012; charaDrag=ev.clientX; } };
+  cv.onpointerup=()=>{ charaDrag=null; }; cv.onclick=ev=>ev.stopPropagation();
+  charaSetModel();
+  const tick=()=>{ if(state!=='chara') return; if(charaDrag==null) charaRot+=0.006; charaDraw(340,440); requestAnimationFrame(tick); }; tick();
 }
 
 // ================= 射撃練習モード =================
@@ -2697,7 +2840,8 @@ function shootOnce(e){
       spawnBullet(e,camera.position.x,camera.position.y-0.03,camera.position.z,d.x,d.y,d.z,wp); dirs.push([+d.x.toFixed(4),+d.y.toFixed(4),+d.z.toFixed(4)]);}
     netSend({t:'f',o:[+camera.position.x.toFixed(3),+(camera.position.y-0.03).toFixed(3),+camera.position.z.toFixed(3)],d:dirs});
     kick=Math.min(0.15,kick+wp.kick); pitch=clamp(pitch+wp.kick*0.35,-1.5,1.5); yaw+=rand(-1,1)*wp.kick*0.1;
-    flashT=0.05; sfxShot(wp,0.35); ejectCasing(wp);
+    flashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.35); ejectCasing(wp);   // クロスボウは火が出ない
+    if(vm&&vm.bow){ vm.bow.released=true; vm.bow.relT=0; kick=Math.min(0.15,kick+0.05); shake=Math.max(shake,0.12); }
     if(vm&&vm.gun.visible){ flashMesh.updateWorldMatrix(true,false); muzzleSparks(wp,flashMesh.getWorldPosition(new THREE.Vector3()),_v.clone(),0.6); }
   } else {
     const d=dist(e,player)||1, tt=d/wp.speed;
@@ -2707,7 +2851,7 @@ function shootOnce(e){
       const sp=wp.spread*diff().spread+diff().miss, a=e.angle+rand(-sp,sp), dy=(player.y-e.y+ah-1.42+0.5*(wp.grav||0)*tt*tt)/d+rand(-sp,sp);
       const v=new THREE.Vector3(Math.cos(a),dy,Math.sin(a)).normalize();
       spawnBullet(e,e.x+Math.cos(e.angle)*0.7,e.y+1.42,e.z+Math.sin(e.angle)*0.7,v.x,v.y,v.z,wp);}
-    rivalFlashT=0.05; sfxShot(wp,0.34*clamp(1-d/70,0.2,1),clamp(d/45,0,0.85),e);
+    rivalFlashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.34*clamp(1-d/70,0.2,1),clamp(d/45,0,0.85),e);
     rivalModel.muzzle.updateWorldMatrix(true,false);
     const mp=rivalModel.muzzle.getWorldPosition(new THREE.Vector3()), md=new THREE.Vector3(Math.cos(e.angle),0,Math.sin(e.angle));
     muzzleSparks(wp,mp,md,1.3); rivalCasing(e,wp,d);
@@ -2860,12 +3004,13 @@ function doFlash(x,y,z){
 // ================= 入力 =================
 const cvs=renderer.domElement, overlay=document.getElementById('overlay'), ovbox=document.getElementById('ovbox');
 const locked=()=>document.pointerLockElement===cvs;
-const inMenu=()=>state==='title'||state==='gameover'||state==='select'||state==='stage'||state==='perk'||state==='online'||state==='netwait';
+const inMenu=()=>state==='title'||state==='gameover'||state==='select'||state==='stage'||state==='perk'||state==='online'||state==='netwait'||state==='chara';
 // オンライン対戦中はメニューを開いても時間は止まらない
 document.addEventListener('pointerlockerror',()=>{ if(!inMenu()){ paused=!isOnline(); showOverlay('pause'); } });
 overlay.addEventListener('click',()=>{
   initAudio();
-  if(state==='select'||state==='stage'||state==='perk'||state==='online'||state==='netwait') return;
+  if(kbOpen) return;
+  if(state==='select'||state==='stage'||state==='perk'||state==='online'||state==='netwait'||state==='chara') return;
   if(state==='gameover'&&net&&net.peer){ net.match=false; state='select'; showOverlay('select'); return; }   // 同じ相手ともう一度
   if(state==='title'||state==='gameover'){ state='stage'; showOverlay('stage'); return; }
   paused=false; const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{});
@@ -2882,27 +3027,79 @@ addEventListener('mousedown',e=>{ if(!locked()) return;
 addEventListener('mouseup',e=>{ if(e.button===0) mouseDown=false; if(e.button===2) rightDown=false; });
 addEventListener('wheel',e=>{ if(!locked()||state!=='fight') return; const st=e.deltaY>0?1:2; let s=(player.slot+st)%3; if(s===0&&player.noGun) s=(s+st)%3; switchSlot(player,s); });
 addEventListener('contextmenu',e=>e.preventDefault());
-addEventListener('keydown',e=>{ keys[e.code]=true;
+// ---------- キー設定（localStorage 'rivalArenaKeys'） ----------
+const KEY_ACTS=[
+  ['fwd','前に進む','KeyW'],['back','後ろに下がる','KeyS'],['left','左に移動','KeyA'],['right','右に移動','KeyD'],
+  ['run','走る','ShiftLeft'],['crouch','しゃがみ／スライディング','ControlLeft'],['jump','ジャンプ','Space'],['dash','ダッシュ','KeyE'],
+  ['reload','リロード','KeyR'],['prev','直前の武器','KeyQ'],['slot1','銃','Digit1'],['slot2','近接武器','Digit2'],['slot3','ユーティリティ','Digit3'],
+  ['chal','練習：60秒チャレンジ','KeyT'],['pgun','練習：銃を持ち替え','KeyG']];
+const KEY_ALT={fwd:'ArrowUp',back:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',run:'ShiftRight',crouch:'ControlRight'};  // 他に使っていなければ予備キーとしても効く
+const KEY_DEF=Object.fromEntries(KEY_ACTS.map(a=>[a[0],a[2]]));
+let KB={...KEY_DEF};
+try{ const s=JSON.parse(localStorage.getItem('rivalArenaKeys')||'null'); if(s) for(const k in KEY_DEF) if(typeof s[k]==='string') KB[k]=s[k]; }catch(e){}
+const saveKB=()=>{ try{ localStorage.setItem('rivalArenaKeys',JSON.stringify(KB)); }catch(e){} };
+const kbUsed=c=>Object.values(KB).includes(c);
+const held=a=>!!(keys[KB[a]]||(KEY_ALT[a]&&!kbUsed(KEY_ALT[a])&&keys[KEY_ALT[a]]));
+const isAct=(a,c)=>c===KB[a]||(KEY_ALT[a]===c&&!kbUsed(c));
+function keyLabel(c){
+  if(!c) return '―';
+  const A={ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Space:'Space',ShiftLeft:'左Shift',ShiftRight:'右Shift',ControlLeft:'左Ctrl',ControlRight:'右Ctrl',
+    AltLeft:'左Alt',AltRight:'右Alt',Tab:'Tab',CapsLock:'CapsLock',Enter:'Enter',Backspace:'BackSpace',Backquote:'`',Minus:'-',Equal:'^',BracketLeft:'@',BracketRight:'[',
+    Backslash:']',Semicolon:';',Quote:':',Comma:',',Period:'.',Slash:'/',IntlRo:'\\',IntlYen:'¥',Mouse3:'マウス4',Mouse4:'マウス5',Mouse1:'ホイールクリック'};
+  if(A[c]) return A[c]; if(/^Key/.test(c)) return c.slice(3); if(/^Digit/.test(c)) return c.slice(5); if(/^Numpad/.test(c)) return 'テンキー'+c.slice(6); return c; }
+const KL=a=>keyLabel(KB[a]);
+let kbWait=null, kbFrom='title', kbOpen=false;   // キー待ち中の動作名／戻り先／設定画面を開いているか
+function setKey(a,c){
+  const other=Object.keys(KB).find(k=>k!==a&&KB[k]===c);
+  if(other) KB[other]=KB[a];   // 他の動作で使っていたキーは入れ替え
+  KB[a]=c; saveKB(); }
+// マウスの横ボタン・ホイールクリックもキーとして使える
+function actDown(c,rep=false){
+  if(state!=='fight') return;
+  if(isAct('slot1',c)) switchSlot(player,0);
+  if(isAct('slot2',c)) switchSlot(player,1);
+  if(isAct('slot3',c)) switchSlot(player,2);
+  if(isAct('prev',c)) switchSlot(player,player.prevSlot);
+  if(isAct('reload',c)) startReload(player);
+  if(rep) return;
+  if(isAct('dash',c)){ const {mx,mz}=moveInput(); tryBoost(player,mx,mz); }
+  if(practice&&isAct('chal',c)) startChallenge();
+  if(practice&&isAct('pgun',c)) cyclePracticeGun();
+  if(isAct('crouch',c)) trySlide();
+  if(isAct('jump',c)) tryJump(player);
+}
+addEventListener('keydown',e=>{
+  if(kbWait){ e.preventDefault(); if(e.code!=='Escape') setKey(kbWait,e.code); kbWait=null; renderKeys(); return; }
+  if(kbOpen) return;
+  keys[e.code]=true;
   if(state==='perk'&&/^Digit[123]$/.test(e.code)){ pickPerk(+e.code.slice(5)-1); return; }
   if(state!=='fight') return;
-  if(e.ctrlKey) e.preventDefault();
-  if(e.code==='Digit1') switchSlot(player,0);
-  if(e.code==='Digit2') switchSlot(player,1);
-  if(e.code==='Digit3') switchSlot(player,2);
-  if(e.code==='KeyQ') switchSlot(player,player.prevSlot);
-  if(e.code==='KeyR') startReload(player);
-  if(e.code==='KeyE'&&!e.repeat){ const {mx,mz}=moveInput(); tryBoost(player,mx,mz); }
-  if(practice&&e.code==='KeyT'&&!e.repeat) startChallenge();
-  if(practice&&e.code==='KeyG'&&!e.repeat) cyclePracticeGun();
-  if((e.code==='ControlLeft'||e.code==='ControlRight')&&!e.repeat) trySlide();
-  if(e.code==='Space'){ e.preventDefault(); if(!e.repeat) tryJump(player); } });
+  if(e.ctrlKey||e.altKey||e.code==='Space'||e.code==='Tab'||kbUsed(e.code)) e.preventDefault();
+  actDown(e.code,e.repeat); });
 addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('mousedown',e=>{ if(e.button===0||e.button===2) return; const c='Mouse'+e.button;
+  if(kbWait){ e.preventDefault(); setKey(kbWait,c); kbWait=null; renderKeys(); return; }
+  if(!locked()) return; e.preventDefault(); keys[c]=true; actDown(c); });
+addEventListener('mouseup',e=>{ if(e.button!==0&&e.button!==2){ const c='Mouse'+e.button; keys[c]=false; if(kbUsed(c)) e.preventDefault(); } });   // 横ボタンでブラウザが「戻る」しないように
+// 試合の state は変えずに、オーバーレイだけキー設定画面にする（オンライン中も試合は進む）
+function openKeys(from){ kbFrom=from; kbWait=null; kbOpen=true; showOverlay('keys'); }
+function renderKeys(){
+  if(!kbOpen) return;
+  ovbox.innerHTML=`<h1 style="font-size:40px;color:#ffd166">⌨ キー設定</h1>
+    <p style="font-size:14px;opacity:.8">変えたい項目をクリック → 使いたいキーを押す（ESCでキャンセル）。マウスの横ボタンも使えます<br>すでに使っているキーを選ぶと、そのキーの役割と入れ替わります</p>
+    <div class="kbgrid">${KEY_ACTS.map(([a,n])=>`<div class="kbrow${kbWait===a?' wait':''}" data-kb="${a}"><span>${n}</span><b>${kbWait===a?'キーを押して…':KL(a)}</b></div>`).join('')}</div>
+    <p style="font-size:13px;opacity:.6">マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み　ホイール：持ち替え　ESC：一時停止（この3つは固定）</p>
+    <button class="pbtn" id="kbReset">↺ 初期設定に戻す</button><button class="pbtn" id="kbBack" style="color:#7bdff2;border-color:#7bdff2">✔ ${kbFrom==='pause'?'ゲームに戻る':'タイトルに戻る'}</button>`;
+  ovbox.querySelectorAll('[data-kb]').forEach(r=>r.onclick=ev=>{ ev.stopPropagation(); kbWait=kbWait===r.dataset.kb?null:r.dataset.kb; renderKeys(); });
+  $('kbReset').onclick=ev=>{ ev.stopPropagation(); if(confirm('キー設定を最初の状態に戻しますか？')){ KB={...KEY_DEF}; saveKB(); kbWait=null; renderKeys(); } };
+  $('kbBack').onclick=ev=>{ ev.stopPropagation(); kbWait=null; kbOpen=false; showOverlay(kbFrom); };
+}
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
 // ================= プレイヤー =================
 function moveInput(){
   let f=0,s=0;
-  if(keys.KeyW||keys.ArrowUp)f++; if(keys.KeyS||keys.ArrowDown)f--; if(keys.KeyD||keys.ArrowRight)s++; if(keys.KeyA||keys.ArrowLeft)s--;
+  if(held('fwd'))f++; if(held('back'))f--; if(held('right'))s++; if(held('left'))s--;
   const mx=-Math.sin(yaw)*f+Math.cos(yaw)*s, mz=-Math.cos(yaw)*f-Math.sin(yaw)*s;
   return {mx,mz,l:Math.hypot(mx,mz)};
 }
@@ -2916,8 +3113,8 @@ function trySlide(){
 const slotMul=e=>e.slot===0?(e.weap.moveMul||1):e.slot===1?(e.melee.moveMul||1):1;
 function updatePlayer(dt){
   const p=player, {mx,mz,l}=moveInput();
-  const ducking=(keys.ControlLeft||keys.ControlRight)&&p.slideT<=0&&p.hp>0;
-  const sp=(ducking?2.8:keys.ShiftLeft&&!rightDown?7.5:5.5)*(adsAmt>0.5?0.6:1)*slotMul(p)*(p.healT>0?0.5:1)*p.spdMul;
+  const ducking=held('crouch')&&p.slideT<=0&&p.hp>0;
+  const sp=(ducking?2.8:held('run')&&!rightDown?7.5:5.5)*(adsAmt>0.5?0.6:1)*slotMul(p)*(p.healT>0?0.5:1)*p.spdMul;
   const ox=p.x, oz=p.z;
   p.slideCD-=dt;
   if(p.dashT>0){ p.dashT-=dt; moveEntity(p,p.ddx*24*dt,p.ddz*24*dt); }
@@ -3241,7 +3438,7 @@ function renderSelect(){
     return `<div class="card ${d?'r-'+d.rar:'r-common'}">${d?`<img src="${d.icon}">`:'<div class="dice" style="font-size:34px">🎲</div>'}<div class="cname">${d?d.name:'ランダム'}</div></div>`;};
   const all=[...GUNS,...MELEES,...UTILS], openN=all.filter(isOpen).length;
   ovbox.innerHTML=`<div class="sel"><div class="selL">
-      <div class="keybar"><span class="kc">🔑 ${prog.keys}<small>本</small></span><span>開放済み ${openN} / ${all.length}</span>
+      <div class="keybar"><button id="backTitle" class="tback">← タイトル</button><span class="kc">🔑 ${prog.keys}<small>本</small></span><span>開放済み ${openN} / ${all.length}</span>
         ${DEV_TOOLS?`<span class="dev">🛠 開発用：
           <button data-dev="all" class="${devAll?'on':''}">全武器ロック解除 ${devAll?'ON':'OFF'}</button>
           <button data-dev="key">🔑+10</button>
@@ -3251,7 +3448,8 @@ function renderSelect(){
       ${sec('melee','② サブ','（2キー）')}
       ${sec('util','③ ユーティリティ','（3キー）')}
     </div><div class="selR"><div class="detail">${detail}</div>
-      <div class="sec" style="justify-content:center;margin:14px 0 18px;font-size:15px">あなたの装備</div>
+      <div class="mychar"><img src="${charaThumbURL()}"><div><b>${myName.replace(/</g,'')}</b><button id="charaBtn">👤 キャラを編集</button></div></div>
+      <div class="sec" style="justify-content:center;margin:10px 0 18px;font-size:15px">あなたの装備</div>
       <div class="lo">${loCard('gun')}${loCard('melee')}${loCard('util')}</div>
       <div class="lostage">ステージ：${sel.stage<0?'ランダム':STAGES[sel.stage].name}<button id="stageBtn">変更</button></div>
       <div class="rmode">${rivalName()}の装備：<br><button class="${sel.rival==='same'?'on':''}" data-r="same">あなたと同じ</button><button class="${sel.rival==='random'?'on':''}" data-r="random">毎ラウンドランダム</button></div>
@@ -3284,6 +3482,8 @@ function renderSelect(){
   ovbox.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ sel.rival=b.dataset.r; saveSel(); const st=ovbox.scrollTop; renderSelect(); ovbox.scrollTop=st; });
   ovbox.querySelector('#startBtn').onclick=startMatch;
   ovbox.querySelector('#pracBtn').onclick=startPractice;
+  ovbox.querySelector('#charaBtn').onclick=()=>openChara('select');
+  ovbox.querySelector('#backTitle').onclick=()=>{ if(net&&net.peer&&!confirm('オンライン対戦をやめてタイトルに戻りますか？')) return; goTitle(); };
   ovbox.scrollTop=keepScroll;
 }
 const SHUFFLE_SVG=`<svg width="96" height="96" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5"/><path d="M4 20 21 3"/><path d="M21 16v5h-5"/><path d="m15 15 6 6"/><path d="M4 4l5 5"/></svg>`;
@@ -3292,8 +3492,9 @@ function renderStageSelect(){
   const tile=i=>`<div class="stile ${sel.stage===i?'on':''}" data-s="${i}">
       ${i<0?`<div class="shuf">${SHUFFLE_SVG}</div>`:`<img src="${th[i]}"><div class="sd">${STAGES[i].desc}</div>`}
       <div class="tag">選択中</div><div class="lbl"><b>${i<0?'ランダム':STAGES[i].name}</b></div></div>`;
-  ovbox.innerHTML=`<div class="stHead"><h2>ステージ選択</h2><span>クリックで決定して装備選択へ</span></div>
+  ovbox.innerHTML=`<div class="stHead"><button id="backTitle2" class="tback">← タイトル</button><h2>ステージ選択</h2><span>クリックで決定して装備選択へ</span></div>
     <div class="sgrid">${tile(-1)}${STAGES.map((_,i)=>tile(i)).join('')}</div>`;
+  $('backTitle2').onclick=ev=>{ ev.stopPropagation(); if(net&&net.peer&&!confirm('オンライン対戦をやめてタイトルに戻りますか？')) return; goTitle(); };
   ovbox.querySelectorAll('.stile').forEach(c=>c.onclick=()=>{
     const i=+c.dataset.s; sel.stage=i; saveSel(); if(i>=0) loadStage(i);
     beep(660,0.08,0.08,'square'); state='select'; showOverlay('select'); });
@@ -3312,6 +3513,8 @@ function goTitle(){
 function startMatch(){ initAudio(); if(net&&net.peer){ netReady(); return; } practice=false; for(const t of targets) scene.remove(t.mesh); targets=[]; newGame(); const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{}); }
 function showOverlay(kind){
   overlay.style.display='flex'; document.exitPointerLock?.();
+  kbOpen=kind==='keys'; if(!kbOpen) kbWait=null;
+  if(kbOpen){ ovbox.className='wide'; renderKeys(); return; }
   ovbox.className=kind==='select'?'wide':kind==='stage'?'stage':kind==='perk'?'perk':'';
   if(kind==='perk'){
     const loser=lastRoundLoser==='p'||lastRoundLoser==='both';
@@ -3329,24 +3532,36 @@ function showOverlay(kind){
   if(kind==='title') ovbox.innerHTML=`<h1>ライバル・アリーナ 3D</h1>
     <p>宿命のライバル「<b style="color:#ff4d6d">${rivalName()}</b>」と1対1の撃ち合い。先に3勝した方が勝ち！</p>
     <p>銃 ${GUNS.length}種・近接 ${MELEES.length}種・ユーティリティ ${UTILS.length}種から装備を組んで戦おう</p>
-    <p class="keys">WASD：移動　マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み<br>1・2・3 / ホイール：持ち替え　Q：直前の武器　Shift：走る　E：ダッシュ（2回まで・空中でも）　Ctrl：しゃがみ（移動中はスライディング）　Space：ジャンプ　R：リロード　ESC：一時停止</p>
+    <p class="keys">${KL('fwd')}${KL('left')}${KL('back')}${KL('right')}：移動　マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み<br>${KL('slot1')}・${KL('slot2')}・${KL('slot3')} / ホイール：持ち替え　${KL('prev')}：直前の武器　${KL('run')}：走る　${KL('dash')}：ダッシュ（2回まで・空中でも）　${KL('crouch')}：しゃがみ（移動中はスライディング）　${KL('jump')}：ジャンプ　${KL('reload')}：リロード　ESC：一時停止</p>
     <p style="color:#b8f35d">頭に当てるとダメージ2倍。跳弾・爆発・炎は自分にも当たる</p>
     <p style="color:#c9b6ff">ラウンドの合間に強化カードを1枚選べる／2ラウンド目からは毎回「特別ルール」<br>アリーナに出るアイテムを奪い合え／${rivalName()}はあなたのクセを覚えて対策してくる</p>
-    <div class="go">クリックしてステージ選択へ</div>
-    <button class="pbtn" id="goOnline" style="color:#7bdff2;border-color:#7bdff2">🌐 友達とオンライン対戦</button>`;
-  if(kind==='title') $('goOnline').onclick=ev=>{ ev.stopPropagation(); initAudio(); state='online'; showOverlay('online'); };
+    <div class="go">クリックして ${rivalName()} と対戦（ステージ選択へ）</div>
+    <div class="tbtns">
+      <button class="pbtn" id="goPrac" style="color:#ffd166;border-color:#ffd166">🎯 射撃練習</button>
+      <button class="pbtn" id="goOnline" style="color:#7bdff2;border-color:#7bdff2">🌐 友達とオンライン対戦</button>
+      <button class="pbtn tchar" id="goChara"><img src="${charaThumbURL()}">👤 キャラクター作成</button>
+      <button class="pbtn" id="goKeys">⌨ キー設定</button>
+    </div>`;
+  if(kind==='title'){
+    $('goOnline').onclick=ev=>{ ev.stopPropagation(); initAudio(); state='online'; showOverlay('online'); };
+    $('goPrac').onclick=ev=>{ ev.stopPropagation(); startPractice(); };
+    $('goChara').onclick=ev=>{ ev.stopPropagation(); initAudio(); openChara('title'); };
+    $('goKeys').onclick=ev=>{ ev.stopPropagation(); openKeys('title'); }; }
   if(kind==='online'){ ovbox.innerHTML=onlineMenuHTML(); wireOnlineMenu(); }
+  if(kind==='chara') renderChara();
   if(kind==='netwait'){ ovbox.innerHTML=`<h1 style="font-size:36px;color:#7bdff2">🌐 ${net?.waitMsg||'待っています…'}</h1><div class="spin"></div><button class="pbtn" id="netQuit">対戦をやめる</button>`;
     $('netQuit').onclick=ev=>{ ev.stopPropagation(); if(confirm('オンライン対戦をやめてタイトルに戻りますか？')) goTitle(); }; }
   if(kind==='pause'){ const on=isOnline();
     ovbox.innerHTML=`<h1 style="font-size:44px;color:#eee">${practice?'射撃練習':on?'メニュー':'一時停止中'}</h1>${on?'<p style="color:#ffd166">⚠ オンライン対戦中は時間が止まりません</p>':''}<div class="go">クリックで${on?'戻る':'再開'}</div>
-    ${practice?`<button class="pbtn" id="pracSwap">🔫 銃を持ち替え（G）</button><button class="pbtn" id="pracExit">練習を終える</button>`:''}
-    <button class="pbtn" id="toTitle">🏠 ${on?'対戦をやめてタイトルへ':'タイトルに戻る'}</button>`;
+    ${practice?`<button class="pbtn" id="pracSwap">🔫 銃を持ち替え（${KL('pgun')}）</button><button class="pbtn" id="pracExit">練習を終える</button>`:''}
+    <button class="pbtn" id="pauseKeys">⌨ キー設定</button><button class="pbtn" id="toTitle">🏠 ${on?'対戦をやめてタイトルへ':'タイトルに戻る'}</button>`;
+    $('pauseKeys').onclick=ev=>{ ev.stopPropagation(); openKeys('pause'); };
     $('toTitle').onclick=ev=>{ ev.stopPropagation(); if(practice||confirm(on?'オンライン対戦をやめてタイトルに戻りますか？':'試合を中断してタイトルに戻りますか？\n（この試合のカギはもらえません）')) goTitle(); };
     if(practice){ $('pracExit').onclick=ev=>{ ev.stopPropagation(); endPractice(); };
       $('pracSwap').onclick=ev=>{ ev.stopPropagation(); cyclePracticeGun(); }; } }
   if(kind==='gameover'){ const win=score.p>score.r;
-    ovbox.innerHTML=`<h1 style="color:${win?'#4cc9f0':'#ff4d6d'}">${win?'勝利！':'敗北…'}</h1>
+    ovbox.innerHTML=`<img src="${charaThumbURL()}" style="height:150px;display:block;margin:0 auto -6px;filter:${win?'drop-shadow(0 0 14px #4cc9f0)':'grayscale(.6) brightness(.8)'}">
+    <h1 style="color:${win?'#4cc9f0':'#ff4d6d'}">${win?'勝利！':'敗北…'}</h1>
     <p style="font-size:28px;font-weight:800">${score.p} - ${score.r}</p>
     <p>${isOnline()?`🌐 ${rivalName()} とのオンライン対戦`:`${rivalName()}「${win?lines().matchLose:lines().matchWin}」`}</p>
     ${lastReward?`<div class="reward">🔑 +${lastReward.got}<small>${lastReward.rounds?`取ったラウンド ${lastReward.rounds}本`:'参加賞'}${lastReward.bonus?`＋勝利ボーナス ${lastReward.bonus}本（${diff().name}）`:''}${lastReward.extra?`＋PERFECTボーナス ${lastReward.extra}本`:''}　→ 所持 ${prog.keys}本</small></div>`:''}
@@ -3359,7 +3574,7 @@ function updatePracHUD(){
   const acc=prac.shots?Math.round(prac.hits/prac.shots*100):0, w=player.weap, best=pracBest[w.name]||0;
   const h=`<div class="pt">🎯 射撃練習　<span style="color:${w.color}">${w.name}</span>${isOpen(w)?'':'<small style="color:#ffd166">（お試し）</small>'}</div>
     <div>命中率 <b>${acc}%</b>　撃破 <b>${prac.kills}</b>　ヘッドショット <b>${prac.heads}</b>　ダメージ <b>${Math.round(prac.dmg)}</b></div>
-    ${prac.chal?`<div class="pc">残り <b>${prac.t.toFixed(1)}</b> 秒　スコア <b>${prac.score}</b>　ベスト ${best}</div>`:`<div class="ph">T：60秒チャレンジ（ベスト ${best}点）　G：銃を持ち替え　E：ダッシュ　ESC：メニュー</div>`}`;
+    ${prac.chal?`<div class="pc">残り <b>${prac.t.toFixed(1)}</b> 秒　スコア <b>${prac.score}</b>　ベスト ${best}</div>`:`<div class="ph">${KL('chal')}：60秒チャレンジ（ベスト ${best}点）　${KL('pgun')}：銃を持ち替え　${KL('dash')}：ダッシュ　ESC：メニュー</div>`}`;
   if(h!==hudCache.pr){ hudCache.pr=h; $('prac').innerHTML=h; }
 }
 function updateHUD(){
@@ -3463,6 +3678,15 @@ function render(){
     { const want=mouseDown&&state==='fight'&&p.slot===0&&p.hp>0&&p.switchT<=0?1:0; vm.pull+=(want-vm.pull)*(want>vm.pull?0.6:0.35);
       if(vm.trigF) vm.trigF.rotation.z=-0.75*vm.pull; for(const m of vm.trigM) m.position.x=m.userData.x0-0.007*vm.pull;
       vm.gun.rotation.x+=0.012*vm.pull; vm.gun.position.y-=0.002*vm.pull; }   // 握り込むと銃がわずかに沈む
+    // クロスボウ：撃つと弦がバチンと前に戻って震え、矢が消える。リロードで弦を引くと手と一緒に弦が下がる
+    if(vm.bow){ const B=vm.bow; let k;
+      if(p.reloadT>0){ const t=1-p.reloadT/wp.reload; k=clamp((t-0.3)/0.25,0,1); for(const o of B.bolt) o.visible=t>=0.84; B.released=false; }
+      else { k=B.released?0:1; for(const o of B.bolt) o.visible=!B.released; }
+      B.relT+=1/60;
+      if(B.released&&B.relT<0.03) k=1-B.relT/0.03;   // 一瞬で前へ
+      const vib=B.released?Math.exp(-B.relT*12)*Math.sin(B.relT*110)*0.01:0;
+      const nk=new THREE.Vector3().lerpVectors(BOW_REST,BOW_COCK,k); nk.y+=vib; nk.z+=vib*0.5;
+      for(const s of B.str) setRod(s.m,s.tip,nk); }
     if(vm.spin) vm.spin.rotation.z+=mouseDown&&state==='fight'&&p.slot===0?0.6:0.05;
   }
   if(boomT>0){ const k=boomT/0.4; boomSprite.visible=true; boomSprite.scale.setScalar(boomR*2.2*(1.2-k)); boomSprite.material.opacity=k; boomLight.intensity=60*k; }
