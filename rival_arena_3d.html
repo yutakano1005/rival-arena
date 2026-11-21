@@ -239,11 +239,20 @@
   #pracBtn{display:block;width:100%;margin:8px 0 0;font:inherit;font-size:16px;font-weight:900;padding:8px;border-radius:8px;cursor:pointer;color:#7bdff2;background:#10202a;border:2px solid #7bdff2}
   #pracBtn:hover{filter:brightness(1.2)}
   .kbgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:14px auto 4px;max-width:640px;text-align:left}
-  .kbrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:6px 10px;border-radius:8px;background:#151b27;cursor:pointer;border:2px solid transparent}
-  .kbrow:hover{border-color:#3a4560}
-  .kbrow.wait{border-color:#ffd166;animation:kbBlink .7s infinite alternate}
+  .kbrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px 5px 10px;border-radius:8px;background:#151b27}
   .kbrow span{font-size:15px}
-  .kbrow b{min-width:70px;text-align:center;padding:3px 10px;border-radius:6px;background:#2a3346;color:#ffd166;font-size:15px}
+  .kbk{display:flex;gap:6px}
+  .dodgeTxt{position:fixed;left:50%;top:58%;transform:translate(-50%,0);z-index:30;pointer-events:none;font-size:26px;font-weight:900;letter-spacing:3px;color:#7bdff2;
+    text-shadow:0 0 8px #4cc9f0,0 2px 3px #000;animation:dodgeUp .7s ease-out forwards}
+  .dodgeTxt.foe{top:40%;font-size:22px;color:#ffb347;text-shadow:0 0 8px #ff7a1a,0 2px 3px #000}
+  @keyframes dodgeUp{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.1)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
+  .kbrow b{min-width:66px;text-align:center;padding:3px 8px;border-radius:6px;background:#2a3346;color:#ffd166;font-size:14px;cursor:pointer;border:2px solid transparent}
+  .kbrow b:hover{border-color:#5a6a90}
+  .kbrow b.empty{color:#6a7590;background:#1b2232}
+  .kbrow b.wait{border-color:#ffd166;animation:kbBlink .7s infinite alternate}
+  .kbhead{display:flex;justify-content:space-between;padding:0 8px 0 10px}
+  .kbhead i{min-width:70px;text-align:center;font-style:normal;font-size:12px;opacity:.6}
+  @media (max-width:640px){ .kbh2{display:none} }
   @keyframes kbBlink{from{background:#151b27}to{background:#2b2a1c}}
   @media (max-width:640px){ .kbgrid{grid-template-columns:1fr} }
   .pbtn{font:inherit;font-size:18px;font-weight:900;padding:10px 24px;margin:16px 8px 0;border-radius:8px;cursor:pointer;color:#eee;background:#1d2433;border:2px solid #3a4560}
@@ -3321,18 +3330,41 @@ function spawnThrow(e,u,ox,oy,oz,vx,vy,vz){
   sfxThrow();
 }
 function moveEntity(e,dx,dz){let ok=true;if(!blocked(e.x+dx,e.z,e.r,e.y))e.x+=dx;else ok=false;if(!blocked(e.x,e.z+dz,e.r,e.y))e.z+=dz;else ok=false;return ok;}
-// ダッシュ：Eキーで移動方向へ一瞬で踏み込む（2回分ためられる。空中では1回）
-const DASH_MAX=2, DASH_RECHARGE=1.6;
-function tryBoost(e,dx,dz){
-  if(e.hp<=0||e.dashCharges<1||e.dashT>0||e.healT>0) return false;
-  if(!e.onGround){ if(e.airDashed) return false; e.airDashed=true; e.vy=Math.max(e.vy,1.2); }
-  let l=Math.hypot(dx,dz); if(l<0.01){ const a=facing(e); dx=Math.cos(a); dz=Math.sin(a); l=1; }
-  e.dashCharges--; e.ddx=dx/l; e.ddz=dz/l; e.dashT=0.17; e.slideT=0;
-  sfxDash(e); for(let i=0;i<3;i++) emit(e.x-e.ddx*i*0.3,e.y+0.15,e.z-e.ddz*i*0.3,0xd8e4f0,5,2,1);
-  return true;
-}
-function sfxDash(e){ if(!actx) return; const D=e===player?undefined:spatial(e.x,e.z,OUT), k=distVol(e); if(k<0.02) return;
-  noise('bandpass',600,2400,0.2,0.3*k,0.9,0,D); noise('lowpass',400,100,0.12,0.25*k,1,0,D); noise('highpass',3000,1500,0.15,0.05*k,0.7,0.03,D); }
+// ステップ：移動キーのダブルタップで、その方向へ短く素早く移動（約2m）。0.45秒のクールダウン。地上のみ
+// （以前の E キーのダッシュは廃止。ライバルもステップでよけてくる）
+const STEP_TIME=0.09, STEP_CD=0.45, STEP_IFRAME=0.15;   // STEP_IFRAME：ステップ開始から無敵の秒数
+// 無敵中に攻撃を受けた：「回避！」の表示と「ヒュッ」という音（連続で出すぎないように間引く）
+// 相手（ライバル）がかわしたときは、オレンジで「かわされた！」
+let lastDodge=0;
+function dodgeFx(foe=false){ const now=performance.now(); if(now-lastDodge<300) return; lastDodge=now;
+  const el=document.createElement('div'); el.className='dodgeTxt'+(foe?' foe':''); el.textContent=foe?'かわされた！':'回避！'; document.body.appendChild(el); setTimeout(()=>el.remove(),700);
+  if(actx){ noise('highpass',5000,2500,0.12,foe?0.1:0.18,0.8); beep(foe?1200:1800,0.12,0.06,'sine',0,foe?700:2600); } }
+function tryStep(e,dx,dz){
+  if(e.hp<=0||!e.onGround||e.dashT>0||e.healT>0||(e.stepCD||0)>0) return false;
+  const l=Math.hypot(dx,dz); if(l<0.01) return false;
+  e.ddx=dx/l; e.ddz=dz/l; e.dashT=STEP_TIME; e.stepCD=STEP_CD; e.slideT=0; e.iframeT=STEP_IFRAME;
+  sfxDash(e);   // 「シュッ」
+  for(let i=0;i<2;i++) emit(e.x-e.ddx*i*0.25,e.y+0.1,e.z-e.ddz*i*0.25,0xd8e4f0,4,1.6,1);
+  return true; }
+// ライバルのステップ：プレイヤーに対して横（ときどき斜め後ろ）へ。壁があれば反対側へ。cd 秒は次のステップを我慢する
+function rivalStep(cd){
+  const ai=rival, ax=player.x-ai.x, az=player.z-ai.z, l=Math.hypot(ax,az)||1;
+  let s=Math.random()<0.5?1:-1, back=Math.random()<0.25?0.6:0;
+  for(let k=0;k<2;k++){ const dx=(-az*s)/l-ax/l*back, dz=(ax*s)/l-az/l*back;
+    if(!blocked(ai.x+dx*2.2,ai.z+dz*2.2,ai.r,ai.y)&&tryStep(ai,dx,dz)){ ai.dodgeCD=cd*rand(0.8,1.3); return true; }
+    s=-s; }
+  return false; }
+let dtapOn=true; try{ dtapOn=localStorage.getItem('rivalArenaDtap')!=='0'; }catch(e){}
+const lastTap={};
+function checkDoubleTap(c){
+  if(!dtapOn) return;
+  const D={fwd:[1,0],back:[-1,0],right:[0,1],left:[0,-1]};
+  for(const a in D) if(isAct(a,c)){ const now=performance.now();
+    if(lastTap[a]&&now-lastTap[a]<260){ const [f,s]=D[a]; lastTap[a]=0;
+      tryStep(player,-Math.sin(yaw)*f+Math.cos(yaw)*s,-Math.cos(yaw)*f-Math.sin(yaw)*s); }
+    else lastTap[a]=now; } }
+function sfxDash(e){ if(!actx) return; const D=e===player?undefined:spatial(e.x,e.z,OUT), k=distVol(e); if(k<0.02) return;   // ステップの「シュッ」
+  noise('bandpass',900,2600,0.11,0.22*k,0.9,0,D); noise('lowpass',500,120,0.07,0.18*k,1,0,D); noise('highpass',3000,1500,0.1,0.05*k,0.7,0.02,D); }
 function tryJump(e){
   if(e.hp<=0) return;
   if(e.onGround||e.airT<0.12){ e.vy=JUMP_V*e.jumpMul*(GRAV<14?0.9:1); e.onGround=false; e.airT=1; e.slideT=0; sfxJump(e); }
@@ -3443,29 +3475,42 @@ addEventListener('contextmenu',e=>e.preventDefault());
 // ---------- キー設定（localStorage 'rivalArenaKeys'） ----------
 const KEY_ACTS=[
   ['fwd','前に進む','KeyW'],['back','後ろに下がる','KeyS'],['left','左に移動','KeyA'],['right','右に移動','KeyD'],
-  ['run','走る','ShiftLeft'],['crouch','しゃがみ／スライディング','ControlLeft'],['jump','ジャンプ','Space'],['dash','ダッシュ','KeyE'],
+  ['run','走る','ShiftLeft'],['crouch','しゃがみ／スライディング','KeyC'],['jump','ジャンプ','Space'],
   ['reload','リロード','KeyR'],['prev','直前の武器','KeyQ'],['slot1','銃','Digit1'],['slot2','近接武器','Digit2'],['slot3','ユーティリティ','Digit3'],
   ['chal','練習：60秒チャレンジ','KeyT'],['pgun','練習：銃を持ち替え','KeyG']];
-const KEY_ALT={fwd:'ArrowUp',back:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',run:'ShiftRight',crouch:'ControlRight'};  // 他に使っていなければ予備キーとしても効く
+// 各動作に「メイン」と「サブ」の2つのキーを割り当てられる（KB＝メイン、KB2＝サブ。サブは空でもよい）
 const KEY_DEF=Object.fromEntries(KEY_ACTS.map(a=>[a[0],a[2]]));
-let KB={...KEY_DEF};
+const KEY_DEF2=Object.fromEntries(KEY_ACTS.map(a=>[a[0],({fwd:'ArrowUp',back:'ArrowDown',left:'ArrowLeft',right:'ArrowRight',run:'ShiftRight'})[a[0]]||'']));
+let KB={...KEY_DEF}, KB2={...KEY_DEF2};
 try{ const s=JSON.parse(localStorage.getItem('rivalArenaKeys')||'null'); if(s) for(const k in KEY_DEF) if(typeof s[k]==='string') KB[k]=s[k]; }catch(e){}
-const saveKB=()=>{ try{ localStorage.setItem('rivalArenaKeys',JSON.stringify(KB)); }catch(e){} };
-const kbUsed=c=>Object.values(KB).includes(c);
-const held=a=>!!(keys[KB[a]]||(KEY_ALT[a]&&!kbUsed(KEY_ALT[a])&&keys[KEY_ALT[a]]));
-const isAct=(a,c)=>c===KB[a]||(KEY_ALT[a]===c&&!kbUsed(c));
+try{ const s=JSON.parse(localStorage.getItem('rivalArenaKeys2')||'null'); if(s) for(const k in KEY_DEF) if(typeof s[k]==='string') KB2[k]=s[k]; }catch(e){}
+for(const k in KB2) if(KB2[k]&&Object.values(KB).includes(KB2[k])) KB2[k]='';   // メインと重なるサブは外す
+const saveKB=()=>{ try{ localStorage.setItem('rivalArenaKeys',JSON.stringify(KB)); localStorage.setItem('rivalArenaKeys2',JSON.stringify(KB2)); }catch(e){} };
+// Ctrl はブラウザのショートカット（Ctrl+W＝タブを閉じる 等）と重なり、ゲームからは止められない
+const isCtrl=c=>c==='ControlLeft'||c==='ControlRight';
+// 以前の初期設定（しゃがみ＝Ctrl）のままの人は、一度だけ C キーへ移す
+try{ if(localStorage.getItem('rivalArenaKeysV')!=='2'){ if(isCtrl(KB.crouch)){ const o=Object.keys(KB).find(k=>KB[k]==='KeyC'); if(o) KB[o]=KB.crouch; KB.crouch='KeyC'; saveKB(); }
+  localStorage.setItem('rivalArenaKeysV','2'); } }catch(e){}
+const kbUsed=c=>!!c&&(Object.values(KB).includes(c)||Object.values(KB2).includes(c));
+const held=a=>!!(keys[KB[a]]||(KB2[a]&&keys[KB2[a]]));
+const isAct=(a,c)=>!!c&&(c===KB[a]||c===KB2[a]);
 function keyLabel(c){
   if(!c) return '―';
   const A={ArrowUp:'↑',ArrowDown:'↓',ArrowLeft:'←',ArrowRight:'→',Space:'Space',ShiftLeft:'左Shift',ShiftRight:'右Shift',ControlLeft:'左Ctrl',ControlRight:'右Ctrl',
     AltLeft:'左Alt',AltRight:'右Alt',Tab:'Tab',CapsLock:'CapsLock',Enter:'Enter',Backspace:'BackSpace',Backquote:'`',Minus:'-',Equal:'^',BracketLeft:'@',BracketRight:'[',
     Backslash:']',Semicolon:';',Quote:':',Comma:',',Period:'.',Slash:'/',IntlRo:'\\',IntlYen:'¥',Mouse3:'マウス4',Mouse4:'マウス5',Mouse1:'ホイールクリック'};
   if(A[c]) return A[c]; if(/^Key/.test(c)) return c.slice(3); if(/^Digit/.test(c)) return c.slice(5); if(/^Numpad/.test(c)) return 'テンキー'+c.slice(6); return c; }
-const KL=a=>keyLabel(KB[a]);
+const KL=a=>keyLabel(KB[a])+(KB2[a]&&!['fwd','back','left','right'].includes(a)?'・'+keyLabel(KB2[a]):'');   // 説明文用（サブがあれば併記）
 let kbWait=null, kbFrom='title', kbOpen=false;   // キー待ち中の動作名／戻り先／設定画面を開いているか
-function setKey(a,c){
-  const other=Object.keys(KB).find(k=>k!==a&&KB[k]===c);
-  if(other) KB[other]=KB[a];   // 他の動作で使っていたキーは入れ替え
-  KB[a]=c; saveKB(); }
+// a の slot（1=メイン, 2=サブ）に c を割り当てる。ほかの場所で c を使っていたら、そこへ元のキーを渡して入れ替える
+// （メインが空になる場合だけは入れ替えを諦めて、そのままにする）
+function setKey(a,c,slot=1){
+  const T=slot===2?KB2:KB, old=T[a]||'';
+  for(const tb of [KB,KB2]) for(const k in tb) if(tb[k]===c&&!(tb===T&&k===a)){
+    if(tb===KB&&!old){ kbMsg=`「${keyLabel(c)}」は「${KEY_ACTS.find(x=>x[0]===k)[1]}」のメインで使っています。先にそちらを別のキーに変えてください`; return; }   // サブの空きに、ほかのメインのキーは取れない
+    tb[k]=old; }
+  T[a]=c; kbMsg=''; saveKB(); }
+let kbMsg='';
 // マウスの横ボタン・ホイールクリックもキーとして使える
 function actDown(c,rep=false){
   if(state!=='fight') return;
@@ -3475,14 +3520,17 @@ function actDown(c,rep=false){
   if(isAct('prev',c)) switchSlot(player,player.prevSlot);
   if(isAct('reload',c)) startReload(player);
   if(rep) return;
-  if(isAct('dash',c)){ const {mx,mz}=moveInput(); tryBoost(player,mx,mz); }
+  checkDoubleTap(c);
   if(practice&&isAct('chal',c)) startChallenge();
   if(practice&&isAct('pgun',c)) cyclePracticeGun();
   if(isAct('crouch',c)) trySlide();
   if(isAct('jump',c)) tryJump(player);
 }
 addEventListener('keydown',e=>{
-  if(kbWait){ e.preventDefault(); if(e.code!=='Escape') setKey(kbWait,e.code); kbWait=null; renderKeys(); return; }
+  if(kbWait){ e.preventDefault(); const [a,sl]=kbWait.split(':'), slot=+sl||1;
+    if((e.code==='Delete'||e.code==='Backspace')&&slot===2){ KB2[a]=''; saveKB(); }   // サブは Delete で消せる
+    else if(e.code!=='Escape') setKey(a,e.code,slot);
+    kbWait=null; renderKeys(); return; }
   if(kbOpen) return;
   keys[e.code]=true;
   if(state==='perk'&&/^Digit[123]$/.test(e.code)){ pickPerk(+e.code.slice(5)-1); return; }
@@ -3490,8 +3538,11 @@ addEventListener('keydown',e=>{
   if(e.ctrlKey||e.altKey||e.code==='Space'||e.code==='Tab'||kbUsed(e.code)) e.preventDefault();
   actDown(e.code,e.repeat); });
 addEventListener('keyup',e=>keys[e.code]=false);
+// 試合中・待機中にタブを閉じかけたら、ブラウザの「このページを離れますか？」で止める（Ctrl+W の押し間違い対策）
+addEventListener('beforeunload',e=>{ const playing=practice||!inMenu()||state==='perk'||state==='netwait'||(net&&net.peer);
+  if(playing){ e.preventDefault(); e.returnValue=''; } });
 addEventListener('mousedown',e=>{ if(e.button===0||e.button===2) return; const c='Mouse'+e.button;
-  if(kbWait){ e.preventDefault(); setKey(kbWait,c); kbWait=null; renderKeys(); return; }
+  if(kbWait){ e.preventDefault(); const [a,sl]=kbWait.split(':'); setKey(a,c,+sl||1); kbWait=null; renderKeys(); return; }
   if(!locked()) return; e.preventDefault(); keys[c]=true; actDown(c); });
 addEventListener('mouseup',e=>{ if(e.button!==0&&e.button!==2){ const c='Mouse'+e.button; keys[c]=false; if(kbUsed(c)) e.preventDefault(); } });   // 横ボタンでブラウザが「戻る」しないように
 // 試合の state は変えずに、オーバーレイだけキー設定画面にする（オンライン中も試合は進む）
@@ -3499,13 +3550,20 @@ function openKeys(from){ kbFrom=from; kbWait=null; kbOpen=true; showOverlay('key
 function renderKeys(){
   if(!kbOpen) return;
   ovbox.innerHTML=`<h1 style="font-size:40px;color:#ffd166">⌨ キー設定</h1>
-    <p style="font-size:14px;opacity:.8">変えたい項目をクリック → 使いたいキーを押す（ESCでキャンセル）。マウスの横ボタンも使えます<br>すでに使っているキーを選ぶと、そのキーの役割と入れ替わります</p>
-    <div class="kbgrid">${KEY_ACTS.map(([a,n])=>`<div class="kbrow${kbWait===a?' wait':''}" data-kb="${a}"><span>${n}</span><b>${kbWait===a?'キーを押して…':KL(a)}</b></div>`).join('')}</div>
+    <p style="font-size:14px;opacity:.8">変えたいキーの枠をクリック → 使いたいキーを押す（ESCでキャンセル）。1つの動作に<b>メイン</b>と<b>サブ</b>の2つまで割り当てられます<br>マウスの横ボタンも使えます。すでに使っているキーを選ぶと入れ替わります。サブは Delete で外せます</p>
+    ${kbMsg?`<p style="color:#ff8c42;font-size:14px">⚠ ${kbMsg}</p>`:''}
+    ${[...Object.values(KB),...Object.values(KB2)].some(isCtrl)?'<p style="color:#ff8c42;font-size:14px">⚠ Ctrl を割り当てると、移動キーと一緒に押したときにブラウザのショートカット（Ctrl+W でタブが閉じる など）が動いてしまいます。ほかのキーがおすすめです</p>':''}
+    <div class="kbgrid"><div class="kbhead"><span></span><span class="kbk"><i>メイン</i><i>サブ</i></span></div><div class="kbhead kbh2"><span></span><span class="kbk"><i>メイン</i><i>サブ</i></span></div>
+    ${KEY_ACTS.map(([a,n])=>`<div class="kbrow"><span>${n}</span><span class="kbk">${[1,2].map(sl=>{ const id=a+':'+sl, w=kbWait===id, v=(sl===1?KB:KB2)[a];
+      return `<b class="${w?'wait':''} ${sl===2&&!v?'empty':''}" data-kb="${id}">${w?'押して…':v?keyLabel(v):'＋'}</b>`; }).join('')}</span></div>`).join('')}</div>
+    <div style="margin:10px 0 2px"><button class="pbtn" id="kbDtap" style="margin:0;font-size:15px;padding:6px 16px;${dtapOn?'color:#06d6a0;border-color:#06d6a0':''}">⇄ 移動キーのダブルタップでステップ：${dtapOn?'ON':'OFF'}</button>
+      <div style="font-size:13px;opacity:.7;margin-top:4px">前後左右のキーを素早く2回押すと、その方向へ約2mすばやく移動。出た瞬間だけごくわずかに無敵（地上のみ）</div></div>
     <p style="font-size:13px;opacity:.6">マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み　ホイール：持ち替え　ESC：一時停止（この3つは固定）</p>
     <button class="pbtn" id="kbReset">↺ 初期設定に戻す</button><button class="pbtn" id="kbBack" style="color:#7bdff2;border-color:#7bdff2">✔ ${kbFrom==='pause'?'ゲームに戻る':'タイトルに戻る'}</button>`;
-  ovbox.querySelectorAll('[data-kb]').forEach(r=>r.onclick=ev=>{ ev.stopPropagation(); kbWait=kbWait===r.dataset.kb?null:r.dataset.kb; renderKeys(); });
-  $('kbReset').onclick=ev=>{ ev.stopPropagation(); if(confirm('キー設定を最初の状態に戻しますか？')){ KB={...KEY_DEF}; saveKB(); kbWait=null; renderKeys(); } };
+  ovbox.querySelectorAll('[data-kb]').forEach(r=>r.onclick=ev=>{ ev.stopPropagation(); kbMsg=''; kbWait=kbWait===r.dataset.kb?null:r.dataset.kb; renderKeys(); });
+  $('kbReset').onclick=ev=>{ ev.stopPropagation(); if(confirm('キー設定を最初の状態に戻しますか？')){ KB={...KEY_DEF}; KB2={...KEY_DEF2}; kbMsg=''; saveKB(); kbWait=null; renderKeys(); } };
   $('kbBack').onclick=ev=>{ ev.stopPropagation(); kbWait=null; kbOpen=false; showOverlay(kbFrom); };
+  $('kbDtap').onclick=ev=>{ ev.stopPropagation(); dtapOn=!dtapOn; try{ localStorage.setItem('rivalArenaDtap',dtapOn?'1':'0'); }catch(e){} renderKeys(); };
 }
 addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 
@@ -3592,6 +3650,12 @@ function updateRival(dt){
   const see=!blind&&p.hp>0&&dist(ai,p)<fogCut&&los(ai,p);
   ai.seenT=see?ai.seenT+dt:0; ai.unseenT=see?0:ai.unseenT+dt; if(see) ai.lastSeen={x:p.x,z:p.z};
   const d=dist(ai,p);
+  // 先読みステップ：プレイヤーがこちらを狙って撃っている／近接で踏み込んできたら、ときどき横へステップしてかわす（難易度が高いほど多い）
+  if(see&&ai.dodgeCD<=0&&sel.diff>=1&&ai.hp>0){
+    const aimAt=Math.abs(angDiff(facing(p),Math.atan2(ai.z-p.z,ai.x-p.x)))<0.12;
+    const threat=(mouseDown&&p.slot===0&&aimAt&&p.ammo>0)||(p.slot===1&&p.swingT>0&&d<3.5);
+    if(threat&&Math.random()<dt*[0,0.7,1.3,2][sel.diff]*skill) rivalStep(1.4);
+  }
   ai.flankT-=dt;
   // 撃ち合い中にジャンプでかわす（ふつう以上）
   if(see&&ai.onGround&&sel.diff>=1&&ai.slot===0&&Math.random()<dt*0.3*skill) tryJump(ai);
@@ -3666,6 +3730,7 @@ function surface(hit,b,nx,ny,nz){
 function damage(e,amt,head,silent=false,src=null){
   if(e.hp<=0) return;
   if(isOnline()&&e===rival) return;   // オンラインでは相手のHPは相手側で計算する（結果が届いたら表示）
+  if(e.iframeT>0&&src!==e){ if(e===player) dodgeFx(); else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
   if(e===player&&src===rival&&!isOnline()) amt*=diff().dmg;
   if(src&&src!==e) amt*=src.dmgMul*(src.boostT>0?1.6:1)*(src.lastStand&&src.hp<src.maxHp*0.35?1+src.lastStand:1);
   amt*=e.armor;
@@ -3679,9 +3744,8 @@ function damage(e,amt,head,silent=false,src=null){
   if(silent) return;
   if(e!==player){ hitmarkT=0.18; document.getElementById('hitmark').style.color=head?'#ff3355':'#fff'; beep(head?1500:1100,0.05,0.12,'triangle'); sfxHit(head);
     if(e===rival){ if(Math.random()<0.35) rival.coverT=1.2;
-      // 撃たれたら横へダッシュしてかわす（ふつう以上）
-      if(sel.diff>=1&&rival.dodgeCD<=0&&rival.slot===0&&Math.random()<0.35*diff().skill()){ rival.dodgeCD=2.5;
-        const ax=player.x-rival.x, az=player.z-rival.z, s=Math.random()<0.5?1:-1; tryBoost(rival,-az*s,ax*s); } } }
+      // 撃たれたら横へステップしてかわす（ふつう以上）。ステップ中は一瞬無敵なので、続く弾をすり抜ける
+      if(sel.diff>=1&&rival.dodgeCD<=0&&Math.random()<0.4*diff().skill()) rivalStep(1.6); } }
   else { hurt=1; shake=Math.max(shake,0.25); sfxHurt(); }
 }
 // ダメージ数字（散弾は1つにまとめる）
@@ -3950,7 +4014,7 @@ function showOverlay(kind){
   if(kind==='title') ovbox.innerHTML=`<h1>ライバル・アリーナ 3D</h1>
     <p>宿命のライバル「<b style="color:#ff4d6d">${rivalName()}</b>」と1対1の撃ち合い。先に3勝した方が勝ち！</p>
     <p>銃 ${GUNS.length}種・近接 ${MELEES.length}種・ユーティリティ ${UTILS.length}種から装備を組んで戦おう</p>
-    <p class="keys">${KL('fwd')}${KL('left')}${KL('back')}${KL('right')}：移動　マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み<br>${KL('slot1')}・${KL('slot2')}・${KL('slot3')} / ホイール：持ち替え　${KL('prev')}：直前の武器　${KL('run')}：走る　${KL('dash')}：ダッシュ（2回まで・空中でも）　${KL('crouch')}：しゃがみ（移動中はスライディング）　${KL('jump')}：ジャンプ　${KL('reload')}：リロード　ESC：一時停止</p>
+    <p class="keys">${KL('fwd')}${KL('left')}${KL('back')}${KL('right')}：移動　マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み<br>${KL('slot1')}・${KL('slot2')}・${KL('slot3')} / ホイール：持ち替え　${KL('prev')}：直前の武器　${KL('run')}：走る　${dtapOn?'移動キー2回：ステップ（一瞬無敵）　':''}${KL('crouch')}：しゃがみ（移動中はスライディング）　${KL('jump')}：ジャンプ　${KL('reload')}：リロード　ESC：一時停止</p>
     <p style="color:#b8f35d">頭に当てるとダメージ2倍。跳弾・爆発・炎は自分にも当たる</p>
     <p style="color:#c9b6ff">ラウンドの合間に強化カードを1枚選べる／2ラウンド目からは毎回「特別ルール」<br>アリーナに出るアイテムを奪い合え／${rivalName()}はあなたのクセを覚えて対策してくる</p>
     <div class="go">クリックして ${rivalName()} と対戦（ステージ選択へ）</div>
@@ -3992,7 +4056,7 @@ function updatePracHUD(){
   const acc=prac.shots?Math.round(prac.hits/prac.shots*100):0, w=player.weap, best=pracBest[w.name]||0;
   const h=`<div class="pt">🎯 射撃練習　<span style="color:${w.color}">${w.name}</span>${isOpen(w)?'':'<small style="color:#ffd166">（お試し）</small>'}</div>
     <div>命中率 <b>${acc}%</b>　撃破 <b>${prac.kills}</b>　ヘッドショット <b>${prac.heads}</b>　ダメージ <b>${Math.round(prac.dmg)}</b></div>
-    ${prac.chal?`<div class="pc">残り <b>${prac.t.toFixed(1)}</b> 秒　スコア <b>${prac.score}</b>　ベスト ${best}</div>`:`<div class="ph">${KL('chal')}：60秒チャレンジ（ベスト ${best}点）　${KL('pgun')}：銃を持ち替え　${KL('dash')}：ダッシュ　ESC：メニュー</div>`}`;
+    ${prac.chal?`<div class="pc">残り <b>${prac.t.toFixed(1)}</b> 秒　スコア <b>${prac.score}</b>　ベスト ${best}</div>`:`<div class="ph">${KL('chal')}：60秒チャレンジ（ベスト ${best}点）　${KL('pgun')}：銃を持ち替え　移動キー2回：ステップ　ESC：メニュー</div>`}`;
   if(h!==hudCache.pr){ hudCache.pr=h; $('prac').innerHTML=h; }
 }
 function updateHUD(){
@@ -4001,7 +4065,7 @@ function updateHUD(){
   const rItem=[rival.weap,rival.melee,rival.util][rival.slot]; $('rwn').textContent=rItem.name; $('rwn').style.color=rItem.color||'#ddd';
   $('rhp').style.width=Math.max(0,rival.hp/rival.maxHp*100)+'%'; $('php').style.width=Math.max(0,p.hp/p.maxHp*100)+'%'; $('phpnum').textContent=Math.max(0,Math.ceil(p.hp))+(p.maxHp!==100?` / ${p.maxHp}`:'');
   $('psh').style.width=p.shield/50*100+'%';
-  const dp=`${'<i></i>'.repeat(p.dashCharges)}${'<i class="e"></i>'.repeat(DASH_MAX-p.dashCharges)}`;
+  const dp=dtapOn?(p.stepCD>0?'<i class="e"></i>':'<i></i>'):'';   // ステップが出せるかの目印
   if(dp!==hudCache.dp){ hudCache.dp=dp; $('dashpips').innerHTML=dp; }
   for(let i=0;i<3;i++){ const s=$('slot'+i); if(s){ s.classList.toggle('on',p.slot===i); if(i===0) s.classList.toggle('off',p.noGun); } }
   const inf=p.infAmmo||p.infT>0;
@@ -4029,8 +4093,7 @@ function updateHUD(){
 function tickFighter(e,dt){
   e.cool-=dt; e.hitT-=dt; e.meleeCD-=dt; e.swingT-=dt; e.utilCD-=dt; e.switchT-=dt; e.blindT-=dt; e.dashCD-=e===player?dt:0;
   if(e.reloadT>0){ e.reloadT-=dt; if(e.reloadT<=0){e.reloadT=0;e.ammo=e.weap.mag;} }
-  if(e.dashCharges<DASH_MAX){ e.dashChargeT+=dt; if(e.dashChargeT>=DASH_RECHARGE){ e.dashChargeT=0; e.dashCharges++; } } else e.dashChargeT=0;
-  e.dodgeCD-=dt;
+  e.dodgeCD-=dt; if(e.stepCD>0) e.stepCD-=dt; if(e.iframeT>0) e.iframeT-=dt;   // ステップの間隔・無敵時間
   if(e.pendHit>0){ e.pendHit-=dt; if(e.pendHit<=0&&e.slot===1) meleeHit(e); }
   e.lastHitT+=dt; if(e.regen&&e.lastHitT>3&&e.hp>0&&e.hp<e.maxHp) e.hp=Math.min(e.maxHp,e.hp+e.regen*dt);
   if(e.boostT>0){ e.boostT-=dt; if(Math.random()<0.4) emit(e.x+rand(-0.3,0.3),e.y+rand(0.2,1.8),e.z+rand(-0.3,0.3),0xff3b5c,1,0.8,-1); }
