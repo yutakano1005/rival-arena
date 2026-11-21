@@ -1,0 +1,14 @@
+{
+  "name": "rival-arena-online",
+  "version": "1.0.0",
+  "description": "ライバル・アリーナ 3D のオンライン対戦サーバー",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
