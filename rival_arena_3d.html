@@ -1640,6 +1640,8 @@ const GUN_REAL={
     credit:'"Simple old shotgun" by SuperMopsek (CC BY 4.0)'},
   'ダブルショットガン':{id:'dbl',tip:[0.5,0.015],sight:0.037,grip:[-0.045,-0.03,0.45,0.017,0.0155,0.024],trig:[0.0,-0.028],fore:[0.13,-0.004,0.017],
     credit:'"Double Barrel Shotgun" by Ryan_Nein (CC BY 4.0)'},
+  'ピストル':{id:'pistol',tip:[0.185,0.027],sight:0.05,grip:[0.015,0.0,0.25,0.026,0.0135,0.034],trig:[0.07,-0.012],pistol:true,adsZ:-0.26,
+    credit:'"Pistol with Engravings" by Mateusz Woliński (CC BY 4.0)'},
 };
 const GUN_SCN={}, GUN_LOAD={};
 // gun_<id>.js を読み込んで GLB を組み立てる（1回だけ）。できたら、いま持っている銃を作り直す
@@ -1682,7 +1684,7 @@ function makeGunModel(wp,hands,noLoad){
   if(RC&&!RS&&!noLoad) loadRealGun(RC.id);
   let b;
   if(RS){ for(const m of RS){ const c=new THREE.Mesh(m.geometry,m.material); c.name=m.name; c.userData={...m.userData}; c.castShadow=true; c.receiveShadow=true; g.add(c); }
-    b={tip:RC.tip,sight:RC.sight,grip:RC.grip,trig:RC.trig,fore:RC.fore,mag:RC.magAt,real:true,adsZ:RC.adsZ||-0.17}; }   // 覗くときは頬を銃床に付けるくらい近く（銃床が画面に映らないように）
+    b={tip:RC.tip,sight:RC.sight,grip:RC.grip,trig:RC.trig,fore:RC.fore,mag:RC.magAt,pistol:RC.pistol,real:true,adsZ:RC.adsZ||-0.17}; }   // 覗くときは頬を銃床に付けるくらい近く（銃床が画面に映らないように）
   else b=(GUN_BUILD[wp.name]||GUN_BUILD['アサルトライフル'])(g,!hands,wp);
   let offHand=[];
   if(hands){ const [gu,gv,a,hd,hw,s0]=b.grip;
