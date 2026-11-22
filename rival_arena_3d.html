@@ -4550,8 +4550,9 @@ const playerFlash=new THREE.Sprite(rivalFlash.material); playerFlash.scale.setSc
 // 自分の体を動かす（肩越し・決着カメラのときだけ見える）
 function updatePlayerBody(p,tw){
   const pm=playerModel; if(!pm) return;
-  const show=!inMenu()&&tw>0.05;
-  pm.root.visible=show; vmRoot.visible=tw<0.6;
+  // 体と一人称の手は同時に出さない：覗き始め（半分を過ぎたら）や、壁際でカメラが頭に近いときは一人称の手に切り替える
+  const show=!inMenu()&&tw>0.5&&camera.position.distanceTo(tpsEye)>0.75;
+  pm.root.visible=show; vmRoot.visible=!show;
   playerFlash.visible=false;
   if(!show) return;
   const pa=playerAngle(), S=pModelState;
