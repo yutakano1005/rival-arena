@@ -27,7 +27,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
     fs.createReadStream(f).pipe(res); return;
   }
-  if (/^\/chara_[a-z0-9_]+\.js$/.test(url)) {   // キャラクターのデータ（chara_data.js / chara_hinata.js など。大きいのでブラウザにしばらく覚えさせる）
+  if (/^\/(chara|gun)_[a-z0-9_]+\.js$/.test(url)) {   // キャラクター・銃のデータ（chara_data.js / chara_hinata.js / gun_m4.js など。大きいのでブラウザにしばらく覚えさせる）
     const f = findFile(url.slice(1));
     if (!f) { res.writeHead(404); res.end(); return; }
     res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
