@@ -2685,22 +2685,30 @@ function buildViewmodels(){
   // 刃先の位置（軌跡を描くため）
   vmRoot.remove(mm); mm.position.set(0,0,0); mm.rotation.set(0,0,0); mm.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(mm); vm.tipY=bb.max.y; vm.baseY=bb.max.y*0.62; vmRoot.add(mm);
+  armModel(rivalModel,rival,()=>rivalModel);
+  // 自分の体（肩越し視点・決着のカメラで見える）。見た目が変わったときだけ作り直す
+  const lk=JSON.stringify(myLook);
+  if(!playerModel||lk!==playerLookKey){ disposeModel(playerModel); playerLookKey=lk; playerModel=buildRival(resolveLook(myLook)); playerModel.root.visible=false; pModelState={lx:null,lz:null,walk:0}; }
+  armModel(playerModel,player,()=>playerModel);
+}
+// キャラの体に銃と近接武器を持たせる（rival・自分の体で共通）
+function armModel(md,e,cur){
   // VRoid のキャラ：右手の骨に銃と近接武器を持たせる（体の読み込みが終わってから）
-  if(rivalModel.isVrm){ const rm=rivalModel, rg=makeGunModel(rival.weap,false), mm=makeMeleeModel(rival.melee);
-    rm.muzzle=new THREE.Object3D(); rm.muzzle.position.copy(rg.tip); rg.group.add(rm.muzzle);
-    rm.melee=mm; { const rb=new THREE.Box3().setFromObject(mm); rm.tipY=rb.max.y; }
-    const apply=()=>{ rm.mountGun(rg,1.25); rm.mountMelee(mm); };
-    if(rm.vrm) apply(); else { rm.onReady=apply; rm.onFail=()=>{ if(rivalModel===rm) buildViewmodels(); }; }   // 読み込めなければ今までの持たせ方で
+  if(md.isVrm){ const rg=makeGunModel(e.weap,false), mm=makeMeleeModel(e.melee);
+    md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle);
+    md.melee=mm; { const rb=new THREE.Box3().setFromObject(mm); md.tipY=rb.max.y; }
+    const apply=()=>{ md.mountGun(rg,1.25); md.mountMelee(mm); };
+    if(md.vrm) apply(); else { md.onReady=apply; md.onFail=()=>{ if(cur()===md) buildViewmodels(); }; }   // 読み込めなければ今までの持たせ方で
     return; }
-  // ライバルの銃（実際の銃モデルを拡大して持たせる）
-  rivalModel.gunG.clear();
-  const rg=makeGunModel(rival.weap,false); rg.group.rotation.y=-Math.PI/2; rg.group.scale.setScalar(1.8); rg.group.position.set(0.4,1.4,0.02);
-  rivalModel.gunG.add(rg.group); rivalModel.muzzle=new THREE.Object3D(); rivalModel.muzzle.position.copy(rg.tip); rg.group.add(rivalModel.muzzle);
-  // ライバルの近接武器
-  if(rivalModel.melee) rivalModel.hand.remove(rivalModel.melee);
-  rivalModel.melee=makeMeleeModel(rival.melee);
-  { const rb=new THREE.Box3().setFromObject(rivalModel.melee); rivalModel.tipY=rb.max.y; }
-  rivalModel.hand.add(rivalModel.melee);
+  // 銃（実際の銃モデルを拡大して持たせる）
+  md.gunG.clear();
+  const rg=makeGunModel(e.weap,false); rg.group.rotation.y=-Math.PI/2; rg.group.scale.setScalar(1.8); rg.group.position.set(0.4,1.4,0.02);
+  md.gunG.add(rg.group); md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle);
+  // 近接武器
+  if(md.melee) md.hand.remove(md.melee);
+  md.melee=makeMeleeModel(e.melee);
+  { const rb=new THREE.Box3().setFromObject(md.melee); md.tipY=rb.max.y; }
+  md.hand.add(md.melee);
 }
 
 // ================= 状態・装備 =================
@@ -2708,6 +2716,14 @@ let state='title', round=1, stateT=0, paused=false, score={p:0,r:0};
 let bullets=[], throws=[], player, rival, yaw=-Math.PI/2, pitch=0;
 let kick=0, shake=0, hurt=0, hitmarkT=0, adsAmt=0, bobT=0, flashT=0, rivalFlashT=0, deathCam=0;
 let dmgNums=[], roundStreak=0, bonusKeys=0, slowT=0, killPunch=0;
+// 視点：'fps' 一人称 / 'tps' 肩越し（右クリックで覗く間は一人称）。決着のときは自分のまわりを回るカメラ
+let viewMode='fps'; try{ if(localStorage.getItem('rivalArenaView')==='tps') viewMode='tps'; }catch(e){}
+let tpsAmt=viewMode==='tps'?1:0, endCam=0, endCamA=0, playerModel=null, playerLookKey='', pModelState={lx:null,lz:null,walk:0};
+const tpsEye=new THREE.Vector3(), tpsAim=new THREE.Vector3();
+function toggleView(){ viewMode=viewMode==='fps'?'tps':'fps'; try{ localStorage.setItem('rivalArenaView',viewMode); }catch(e){}
+  toast(viewMode==='tps'?'🎥 肩越し視点（右クリックで一人称で覗く）':'🎥 一人称視点'); }
+// 自分の向き（yaw）をキャラの向き（angle：+X が 0）に直す
+const playerAngle=()=>Math.atan2(-Math.cos(yaw),-Math.sin(yaw));
 const keys={}; let mouseDown=false, rightDown=false, clickQ=false;
 let gunOrder=GUNS.map((_,i)=>i);
 const weapon=()=>player.weap;
@@ -3486,15 +3502,21 @@ function shootOnce(e){
   if(e===player){
     camera.getWorldDirection(_v); _r.set(1,0,0).applyQuaternion(camera.quaternion); _u.set(0,1,0).applyQuaternion(camera.quaternion);
     const ads=adsAmt>0.6; let sp=wp.spread*(ads?0.5:1); if(wp.name==='スナイパー'&&!ads) sp+=0.05;
+    // 弾の出る所：一人称はカメラ、肩越しは自分の目の位置から画面の真ん中が指す所へ
+    const tps=tpsShooting(), O=tps?tpsEye.clone():camera.position.clone().setY(camera.position.y-0.03);
+    if(tps) _v.copy(tpsAimPoint(_v)).sub(O).normalize();
     const dirs=[];
     for(let i=0;i<wp.pellets;i++){
       const d=_v.clone().addScaledVector(_r,rand(-sp,sp)).addScaledVector(_u,rand(-sp,sp)).normalize();
-      spawnBullet(e,camera.position.x,camera.position.y-0.03,camera.position.z,d.x,d.y,d.z,wp); dirs.push([+d.x.toFixed(4),+d.y.toFixed(4),+d.z.toFixed(4)]);}
-    netSend({t:'f',o:[+camera.position.x.toFixed(3),+(camera.position.y-0.03).toFixed(3),+camera.position.z.toFixed(3)],d:dirs});
+      spawnBullet(e,O.x,O.y,O.z,d.x,d.y,d.z,wp); dirs.push([+d.x.toFixed(4),+d.y.toFixed(4),+d.z.toFixed(4)]);}
+    netSend({t:'f',o:[+O.x.toFixed(3),+O.y.toFixed(3),+O.z.toFixed(3)],d:dirs});
+    e.firedT=0.3;
     kick=Math.min(0.15,kick+wp.kick); pitch=clamp(pitch+wp.kick*0.35,-1.5,1.5); yaw+=rand(-1,1)*wp.kick*0.1;
-    flashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.35); ejectCasing(wp);   // クロスボウは火が出ない
+    flashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.35);   // クロスボウは火が出ない
+    if(tps){ const pe=Object.create(e); pe.angle=playerAngle(); rivalCasing(pe,wp,0); } else ejectCasing(wp);
     if(vm&&vm.bow){ vm.bow.released=true; vm.bow.relT=0; kick=Math.min(0.15,kick+0.05); shake=Math.max(shake,0.12); }
-    if(vm&&vm.gun.visible){ flashMesh.updateWorldMatrix(true,false); muzzleSparks(wp,flashMesh.getWorldPosition(new THREE.Vector3()),_v.clone(),0.6); }
+    if(tps&&playerModel&&playerModel.root.visible){ playerModel.muzzle.updateWorldMatrix(true,false); muzzleSparks(wp,playerModel.muzzle.getWorldPosition(new THREE.Vector3()),_v.clone(),1.1); }
+    else if(vm&&vm.gun.visible){ flashMesh.updateWorldMatrix(true,false); muzzleSparks(wp,flashMesh.getWorldPosition(new THREE.Vector3()),_v.clone(),0.6); }
   } else {
     const d=dist(e,player)||1, tt=d/wp.speed;
     // 頭を狙う：ヘッドショット祭りのときや、たまに（うまい相手ほど多い）
@@ -3576,7 +3598,8 @@ function useUtil(e,target){
   let ox,oy,oz,vx,vy,vz; const sp=u.speed;
   if(e===player){
     camera.getWorldDirection(_v);
-    ox=camera.position.x+_v.x*0.4; oy=camera.position.y-0.1; oz=camera.position.z+_v.z*0.4;
+    const cp=tpsShooting()?tpsEye:camera.position;   // 肩越しのときは自分の目の位置から投げる
+    ox=cp.x+_v.x*0.4; oy=cp.y-0.1; oz=cp.z+_v.z*0.4;
     vx=_v.x*sp+player.vx*0.5; vy=_v.y*sp+3; vz=_v.z*sp+player.vz*0.5;
   } else {
     const dd=Math.max(2,dist(e,target)), a=Math.atan2(target.z-e.z,target.x-e.x)+rand(-0.05,0.05), th=0.6;
@@ -3741,6 +3764,7 @@ const KEY_ACTS=[
   ['fwd','前に進む','KeyW'],['back','後ろに下がる','KeyS'],['left','左に移動','KeyA'],['right','右に移動','KeyD'],
   ['run','走る','ShiftLeft'],['crouch','しゃがみ／スライディング','KeyC'],['jump','ジャンプ','Space'],
   ['reload','リロード','KeyR'],['prev','直前の武器','KeyQ'],['slot1','銃','Digit1'],['slot2','近接武器','Digit2'],['slot3','ユーティリティ','Digit3'],
+  ['view','視点の切り替え（一人称／肩越し）','KeyV'],
   ['chal','練習：60秒チャレンジ','KeyT'],['pgun','練習：銃を持ち替え','KeyG']];
 // 各動作に「メイン」と「サブ」の2つのキーを割り当てられる（KB＝メイン、KB2＝サブ。サブは空でもよい）
 const KEY_DEF=Object.fromEntries(KEY_ACTS.map(a=>[a[0],a[2]]));
@@ -3778,6 +3802,7 @@ let kbMsg='';
 // マウスの横ボタン・ホイールクリックもキーとして使える
 function actDown(c,rep=false){
   if(state!=='fight') return;
+  if(isAct('view',c)&&!rep) toggleView();
   if(isAct('slot1',c)) switchSlot(player,0);
   if(isAct('slot2',c)) switchSlot(player,1);
   if(isAct('slot3',c)) switchSlot(player,2);
@@ -3798,6 +3823,7 @@ addEventListener('keydown',e=>{
   if(kbOpen) return;
   keys[e.code]=true;
   if(state==='perk'&&/^Digit[123]$/.test(e.code)){ pickPerk(+e.code.slice(5)-1); return; }
+  if(state==='countdown'&&isAct('view',e.code)&&!e.repeat){ toggleView(); return; }
   if(state!=='fight') return;
   if(e.ctrlKey||e.altKey||e.code==='Space'||e.code==='Tab'||kbUsed(e.code)) e.preventDefault();
   actDown(e.code,e.repeat); });
@@ -4416,6 +4442,7 @@ function render(){
   const bob=Math.sin(bobT)*0.035*(1-adsAmt*0.8);
   camera.position.set(p.x+(Math.random()-0.5)*shake*0.1, p.y+1.62-p.crouch*0.8+bob-deathCam*1.25, p.z+(Math.random()-0.5)*shake*0.1);
   camera.rotation.set(pitch+kick*0.3,yaw,deathCam*0.9+(p.slideFov||0)*0.07);
+  const tw=updateViewCam(p);
   let scoped=false; if(!inMenu()){ scoped=updateHUD(); updateDmgNums(); }
   // 手持ちモデル
   if(vm){
@@ -4451,6 +4478,7 @@ function render(){
   if(boomT>0){ const k=boomT/0.4; boomSprite.visible=true; boomSprite.scale.setScalar(boomR*2.2*(1.2-k)); boomSprite.material.opacity=k; boomLight.intensity=60*k; }
   else { boomSprite.visible=false; boomLight.intensity=0; }
   flashMesh.visible=flashT>0; flashMesh.rotation.z=Math.random()*6; flashLight.intensity=flashT>0?6:0;
+  updatePlayerBody(p,tw);
   // ライバル
   const rm=rivalModel; rm.root.position.set(rival.x,rival.y,rival.z); rm.root.rotation.y=-rival.angle;
   rm.root.visible=!inMenu()&&!practice;
@@ -4477,6 +4505,67 @@ function render(){
     if(chargeOrbR.visible){ rm.muzzle.getWorldPosition(chargeOrbR.position); chargeOrbR.scale.setScalar(pulse(kr)); } }
   $('hud').style.display=inMenu()?'none':'block';
   renderer.render(scene,camera);
+}
+// ----- 肩越し視点・決着カメラ -----
+// 目の位置 a から b へ、壁にめり込まない所まで（0〜1 の割合）
+function camReach(a,b){ const d=b.clone().sub(a), L=d.length(), n=Math.max(1,Math.ceil(L/0.08)), q=new THREE.Vector3();
+  for(let i=1;i<=n;i++){ q.copy(a).addScaledVector(d,i/n); if(solidAt(q.x,q.y,q.z)||q.y<0.15) return Math.max(0,(i-1)/n-0.2/Math.max(L,0.01)); }
+  return 1; }
+const _cq=new THREE.Quaternion(), _cm=new THREE.Matrix4();
+// 肩越しの重み（0=一人称 1=肩越し）を返し、カメラを動かす。ここで決まった FOV・向きは一人称と同じ
+function updateViewCam(p){
+  const dt=Math.min(0.05,frameDt||1/60);
+  tpsAmt+=((viewMode==='tps'?1:0)-tpsAmt)*Math.min(1,dt*8);
+  tpsEye.set(p.x,p.y+1.62-p.crouch*0.8,p.z);
+  // 決着：少し間をおいてから、自分のまわりをゆっくり回る（勝ったら前から、やられたら後ろから）
+  if(state==='roundEnd'&&!practice){ if(endCam===0){ endCam=0.0001; endCamA=playerAngle()+(p.hp>0?0:Math.PI); } else endCam+=dt; }
+  else endCam=0;
+  const ek=clamp((endCam-0.6)/0.9,0,1);
+  const tw=ek>0?0:tpsAmt*(1-adsAmt);
+  if(tw>0.001){
+    camera.updateMatrixWorld();
+    const right=new THREE.Vector3(1,0,0).applyQuaternion(camera.quaternion), back=new THREE.Vector3(0,0,1).applyQuaternion(camera.quaternion);
+    const want=tpsEye.clone().addScaledVector(right,0.85).addScaledVector(back,2.2); want.y+=0.28;   // 右肩の後ろ（キャラは照準の左に見える）
+    const r=camReach(tpsEye,want), tp=tpsEye.clone().lerp(want,r);
+    camera.position.lerp(tp,tw);
+  }
+  if(ek>0){
+    endCamA+=dt*0.4;
+    const dead=p.hp<=0, c=new THREE.Vector3(p.x,p.y+(dead?0.5:1.15),p.z);
+    const want=c.clone().add(new THREE.Vector3(Math.cos(endCamA)*3.2,dead?1.6:0.6,Math.sin(endCamA)*3.2));
+    const op=c.clone().lerp(want,Math.max(0.25,camReach(c,want))), s=smooth(ek);
+    _cm.lookAt(op,c,camera.up.set(0,1,0)); _cq.setFromRotationMatrix(_cm);
+    camera.position.lerp(op,s); camera.quaternion.slerp(_cq,s);
+  }
+  return ek>0?1:tw; }
+// 肩越しで撃つとき：画面の真ん中が指している所を探して、そこへ向けて目の位置から撃つ
+function tpsAimPoint(dir){
+  const o=camera.position, q=new THREE.Vector3(), t0=o.distanceTo(tpsEye);
+  for(let t=t0;t<150;t+=0.2){ q.copy(o).addScaledVector(dir,t);
+    if(solidAt(q.x,q.y,q.z)||q.y<0) return q;
+    const tg=practice?null:rival; if(tg&&tg.hp>0&&Math.hypot(q.x-tg.x,q.z-tg.z)<0.4&&q.y>tg.y&&q.y<tg.y+(tg.height||1.88)) return q; }
+  return q; }
+const tpsShooting=()=>viewMode==='tps'&&tpsAmt*(1-adsAmt)>0.5;
+const playerFlash=new THREE.Sprite(rivalFlash.material); playerFlash.scale.setScalar(0.6); playerFlash.visible=false; scene.add(playerFlash);
+// 自分の体を動かす（肩越し・決着カメラのときだけ見える）
+function updatePlayerBody(p,tw){
+  const pm=playerModel; if(!pm) return;
+  const show=!inMenu()&&tw>0.05;
+  pm.root.visible=show; vmRoot.visible=tw<0.6;
+  playerFlash.visible=false;
+  if(!show) return;
+  const pa=playerAngle(), S=pModelState;
+  pm.root.position.set(p.x,p.y,p.z); pm.root.rotation.y=-pa;
+  if(S.lx!=null) S.walk+=Math.hypot(p.x-S.lx,p.z-S.lz)*3.2; S.lx=p.x; S.lz=p.z;
+  const pe=Object.create(p); pe.angle=pa;
+  if(pm.isVrm){ pm.driven=true; pm.update(frameDt,pe); }
+  else { const swg=Math.sin(S.walk)*0.55; pm.legs[0].rotation.z=swg; pm.legs[1].rotation.z=-swg;
+    pm.pivot.rotation.z=p.hp<=0?Math.min(1.5,pm.pivot.rotation.z+frameDt*3):0; }
+  if(pm.tick) pm.tick(performance.now()/1000);
+  const mel=p.slot===1&&!!pm.melee;
+  pm.gunG.visible=p.slot===0; pm.gunArms.visible=!mel; pm.upper.visible=mel; if(pm.melee) pm.melee.visible=mel;
+  if(mel&&!pm.isVrm&&pm.armR){ const t=p.swingT>0?1-p.swingT/(p.swingDur||0.3):1; applyRivalPose(pm,rivalMeleePose(p.melee.model,t,p.swingDir||1)); }
+  if(flashT>0&&p.slot===0&&pm.muzzle){ pm.muzzle.getWorldPosition(playerFlash.position); playerFlash.visible=true; }
 }
 let last=performance.now(), frameDt=0;
 function loop(now){ const dt=Math.min(0.05,(now-last)/1000); last=now;
