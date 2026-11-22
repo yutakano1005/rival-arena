@@ -11,12 +11,13 @@ const crypto = require('crypto');
 const PORT = process.env.PORT || 3000;
 const TEST = process.env.TEST === '1';   // テスト用：部屋コードを指定して作れる
 
-// ゲーム本体のファイルを探す（同じフォルダ → 1つ上のフォルダ）
-function gameFile() {
-  for (const p of [path.join(__dirname, 'rival_arena_3d.html'), path.join(__dirname, '..', 'rival_arena_3d.html')])
+// ゲームのファイルを探す（同じフォルダ → 1つ上のフォルダ）
+function findFile(name) {
+  for (const p of [path.join(__dirname, name), path.join(__dirname, '..', name)])
     if (fs.existsSync(p)) return p;
   return null;
 }
+const gameFile = () => findFile('rival_arena_3d.html');
 
 const server = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
@@ -24,6 +25,12 @@ const server = http.createServer((req, res) => {
     const f = gameFile();
     if (!f) { res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' }); res.end('rival_arena_3d.html が見つかりません。server.js と同じ場所に置いてください。'); return; }
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
+    fs.createReadStream(f).pipe(res); return;
+  }
+  if (/^\/chara_[a-z0-9_]+\.js$/.test(url)) {   // キャラクターのデータ（chara_data.js / chara_hinata.js など。大きいのでブラウザにしばらく覚えさせる）
+    const f = findFile(url.slice(1));
+    if (!f) { res.writeHead(404); res.end(); return; }
+    res.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8', 'Cache-Control': 'public, max-age=3600' });
     fs.createReadStream(f).pipe(res); return;
   }
   if (url === '/health') { res.writeHead(200, { 'Content-Type': 'text/plain' }); res.end('ok ' + rooms.size); return; }
