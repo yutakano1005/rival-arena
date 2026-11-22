@@ -344,6 +344,7 @@ window.SND_DATA={
 <!-- キャラクター（VRoid）のデータ。無ければ今までの作りのキャラで動く -->
 <script defer src="chara_data.js"></script>
 <script defer src="chara_hinata.js"></script>
+<script defer src="chara_blanca.js"></script>
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/","@pixiv/three-vrm":"https://cdn.jsdelivr.net/npm/@pixiv/three-vrm@2.1.3/lib/three-vrm.module.js"}}
 </script>
@@ -3164,6 +3165,8 @@ const SKINS=[
     look:{vrm:'chappy',jacket:'#2b2f3a',glove:'#e9c9ae'}}]:[]),
   ...(window.CHARA_DATA?.vrm?.hinata?[{id:'hinata',name:'ひなた',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ2人目。走る・撃つ・リロードの動き付き',
     look:{vrm:'hinata',jacket:'#3a3550',glove:'#f0d2b8'}}]:[]),
+  ...(window.CHARA_DATA?.vrm?.blanca?[{id:'blanca',name:'ブランカ',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ3人目。走る・撃つ・リロードの動き付き',
+    look:{vrm:'blanca',jacket:'#3f74d8',glove:'#1c1c1e'}}]:[]),   // 一人称の袖＝青い服、手＝黒い手袋
 ];
 const SKIN_BY=Object.fromEntries(SKINS.map(s=>[s.id,s]));
 prog.skins=[]; try{ const s=JSON.parse(localStorage.getItem('rivalArenaProgress')||'null'); if(s&&Array.isArray(s.skins)) prog.skins=s.skins.filter(x=>SKIN_BY[x]); }catch(e){}
