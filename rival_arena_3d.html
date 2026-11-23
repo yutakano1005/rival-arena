@@ -2134,10 +2134,15 @@ function loadVrm(id){ return new Promise((res,rej)=>{ const gl=new GLTFLoader();
     VRMUtils.removeUnnecessaryVertices(g.scene); VRMUtils.removeUnnecessaryJoints(g.scene); res(vrm); },rej); }); }
 // 上半身・下半身の骨（走りながら撃つ・リロードするため、上と下で別の動きを重ねる）
 const LOWER_BONES=new Set(['hips','leftUpperLeg','leftLowerLeg','leftFoot','leftToes','rightUpperLeg','rightLowerLeg','rightFoot','rightToes']);
+// 左右反転した動きを作る（左右の骨を入れ替え、横方向をひっくり返す）
+function mirrorClip(c){
+  const sw=b=>b.startsWith('left')?'right'+b.slice(4):b.startsWith('right')?'left'+b.slice(5):b;
+  return {d:c.d,t:c.t.map(([bone,k,times,vals])=>[sw(bone),k,times,vals.map((x,i)=>k==='q'?(i%4===1||i%4===2?-x:x):(i%3===0?-x:x))])}; }
 function vrmClips(vrm){
   const h=vrm.humanoid, v0=vrm.meta?.metaVersion==='0', hipsH=h.getNormalizedBoneNode('hips').getWorldPosition(new THREE.Vector3()).y-vrm.scene.position.y;
-  const out={};
-  for(const [name,c] of Object.entries(CD().clips)){
+  const out={}, CL=CD().clips;
+  if(CL.dodgeL&&!CL.dodgeR) CL.dodgeR=mirrorClip(CL.dodgeL);   // 右へよける＝左へよけるの反転
+  for(const [name,c] of Object.entries(CL)){
     const all=[],lo=[],up=[];
     for(const [bone,kind,times,vals] of c.t){ const node=h.getNormalizedBoneNode(bone); if(!node) continue;
       const tr=kind==='q'?new THREE.QuaternionKeyframeTrack(node.name+'.quaternion',times,v0?vals.map((x,i)=>i%2===0?-x:x):vals)
@@ -2177,9 +2182,18 @@ function aimHead(m,pit,k,spineOnly){
 // ----- 回避の見た目：体ごと回す（転がる）／後ろへ反る（後ろ跳び）。キャラの台座（pivot）を腰のあたりを中心に動かす -----
 const _dq=new THREE.Quaternion(), _dq2=new THREE.Quaternion(), _dc=new THREE.Vector3(), _dax=new THREE.Vector3(0,0,-1), _day=new THREE.Vector3(0,1,0);
 function dodgeProg(e){ return e&&e.dodgeT>0&&e.dodgeDur>0?1-clamp(e.dodgeT/e.dodgeDur,0,1):-1; }
+// 回避に使う動きの名前（VRM のキャラで、動きのデータがあるとき）。前→前転、横→横へよける、後ろ→後ろへよける
+function dodgeClipName(m,e){
+  if(!m.clips||!e||!(e.dodgeT>0)||e.hp<=0) return null;
+  let n;
+  if(e.dodgeKind==='hop') n='dodgeB';
+  else { const ca=Math.cos(e.angle), sa=Math.sin(e.angle), lf=e.ddx*ca+e.ddz*sa, ls=-e.ddx*sa+e.ddz*ca;
+    n=Math.abs(ls)>Math.abs(lf)?(ls>0?'dodgeR':'dodgeL'):(lf>=0?'rollF':'dodgeB'); }
+  return m.clips[n]?n:null; }
 function applyDodgePose(m,e){
   const pv=m.pivot, t=dodgeProg(e);
-  if(t<0||e.hp<=0){ if(m.dodgePose){ m.dodgePose=false; pv.quaternion.identity(); pv.position.set(0,0,0); pv.scale.setScalar(1); } return; }
+  // 動きのデータで回避しているときは、体ごと回さない
+  if(t<0||e.hp<=0||m.dodgeClip){ if(m.dodgePose){ m.dodgePose=false; pv.quaternion.identity(); pv.position.set(0,0,0); pv.scale.setScalar(1); } return; }
   m.dodgePose=true;
   // 動く向き（キャラから見て）：前 lf、横 ls（+ が右）
   const ca=Math.cos(e.angle), sa=Math.sin(e.angle), lf=e.ddx*ca+e.ddz*sa, ls=-e.ddx*sa+e.ddz*ca;
@@ -2202,7 +2216,8 @@ function applyDodgePose(m,e){
 // 一人称：回避中にカメラを下げる・少し傾ける
 function dodgeCam(p){ const t=dodgeProg(p); if(t<0) return {dip:0,roll:0};
   const k=Math.sin(Math.PI*t); if(p.dodgeKind==='hop') return {dip:0.12*k,roll:0};
-  const ca=Math.cos(playerAngle()), sa=Math.sin(playerAngle()), ls=-p.ddx*sa+p.ddz*ca;
+  const ca=Math.cos(playerAngle()), sa=Math.sin(playerAngle()), lf=p.ddx*ca+p.ddz*sa, ls=-p.ddx*sa+p.ddz*ca;
+  if(Math.abs(ls)>Math.abs(lf)&&CD()?.clips?.dodgeL) return {dip:0.15*k,roll:-ls*0.12*k};   // 横へよける（転がらない）：少し沈んで少し傾く
   return {dip:0.85*k,roll:-ls*0.35*k}; }
 // 骨 n をワールドでの回転 d だけ回す
 function rotWorld(n,d){ n.parent.getWorldQuaternion(_ap); n.quaternion.premultiply(_ap.clone().invert().multiply(d).multiply(_ap)); n.updateWorldMatrix(false,true); }
@@ -2319,9 +2334,9 @@ function buildVrmRival(L,parent){
     act.play(); m.cur[layer]={name,act}; };
   m.stopLayer=(layer,fade=0.2)=>{ const cur=m.cur[layer]; if(cur){ cur.act.fadeOut(fade); m.cur[layer]=null; } };
   // ゲームの状態 e（rival）から動きを選ぶ。e が無ければ待機（キャラ作成の画面など）
-  let lx=null,lz=null,vs=0,vfs=0,vss=0,lastHp=null,hitT=0,blinkT=2,blink=0,lastSwing=0;
+  let lx=null,lz=null,vs=0,vfs=0,vss=0,lastHp=null,hitT=0,blinkT=2,blink=0,lastSwing=0,lastDT=0;
   m.update=(dt,e)=>{
-    if(!m.vrm) return; dt=Math.min(dt,0.1);
+    if(!m.vrm) return; dt=Math.min(dt,0.1); m.dodgeClip=null;
     if(e){
       // 向きに対する前後・左右の速さ
       if(lx==null){ lx=e.x; lz=e.z; }
@@ -2333,10 +2348,14 @@ function buildVrmRival(L,parent){
         if(m.cur.F){ m.stopLayer('F',0.1); lx=e.x; lz=e.z; }
         // 下半身
         let low='idle', sp=1;
-        if(e.dodgeT>0) low=e.dodgeKind==='hop'?'back':'idle';   // 回避中（ジャンプの動きは腰が浮くので使わない。前転は待機の脚から丸める）
+        // 回避：Mixamo の動き（前転・横へよける・後ろへよける）を、回避の長さに合わせた速さで全身に流す
+        const dc=dodgeClipName(m,e), dNew=e.dodgeT>lastDT+1e-3; lastDT=e.dodgeT>0?e.dodgeT:0; m.dodgeClip=dc;
+        const dOpt=dc?{loop:false,speed:m.clips[dc].d/Math.max(0.2,e.dodgeDur),restart:dNew,fade:0.06}:null;
+        if(dc) low=dc;
+        else if(e.dodgeT>0) low=e.dodgeKind==='hop'?'back':'idle';   // 動きのデータが無いとき（ジャンプの動きは腰が浮くので使わない。前転は待機の脚から丸める）
         else if(!e.onGround) low='jump';
         else if(vs>0.6){ if(Math.abs(vfs)>=Math.abs(vss)) low=vfs>0?(vs>3.6?'run':'walk'):'back'; else low=vss>0?'right':'left'; sp=Math.min(1.8,Math.max(0.7,vs/(CLIP_SPEED[low]||3))); }
-        m.play('L',low,{loop:low!=='jump',speed:sp});
+        m.play('L',low,dOpt||{loop:low!=='jump',speed:sp});
         // 上半身
         if(lastHp!=null&&e.hp<lastHp-0.5) hitT=0.35; lastHp=e.hp; hitT-=dt;
         let upN='idle', usp=1, uloop=true, urst=false;
@@ -2345,7 +2364,8 @@ function buildVrmRival(L,parent){
         else if(e.slot===0&&e.firedT>0){ upN='fire'; }
         else if(hitT>0){ upN='hit'; uloop=false; }
         lastSwing=e.slot===1?e.swingT:0;
-        m.play('U',upN,{loop:uloop,speed:usp,restart:urst,fade:upN==='fire'?0.06:0.15});
+        if(dc) m.play('U',dc,dOpt);
+        else m.play('U',upN,{loop:uloop,speed:usp,restart:urst,fade:upN==='fire'?0.06:0.15});
       }
     } else { m.play('L','idle'); m.play('U','idle'); }
     // まばたき
@@ -2366,7 +2386,7 @@ function buildVrmRival(L,parent){
     }
     // 前転：体を丸める（入りと終わりはなめらかに）
     const tp=e&&e.dodgeKind==='roll'?dodgeProg(e):-1;
-    if(tp>=0&&m.tuck&&e.hp>0){ const w=smooth(clamp(tp/0.12,0,1))*smooth(clamp((1-tp)/0.2,0,1));
+    if(tp>=0&&m.tuck&&e.hp>0&&!m.dodgeClip){ const w=smooth(clamp(tp/0.12,0,1))*smooth(clamp((1-tp)/0.2,0,1));
       for(const T of m.tuck) T.n.quaternion.multiply(_dq.setFromAxisAngle(T.r,T.a*w)); }
     m.vrm.update(dt); };
   // キャラ作成の画面などで使う（時刻 t から経過時間を出して待機アニメ）
@@ -3800,9 +3820,9 @@ function dodgeFx(foe=false){ const now=performance.now(); if(now-lastDodge<300) 
   const el=document.createElement('div'); el.className='dodgeTxt'+(foe?' foe':''); el.textContent=foe?'かわされた！':'回避！'; document.body.appendChild(el); setTimeout(()=>el.remove(),700);
   if(actx){ noise('highpass',5000,2500,0.12,foe?0.1:0.18,0.8); beep(foe?1200:1800,0.12,0.06,'sine',0,foe?700:2600); } }
 // 回避の動き：roll=転がる（前・左右）、hop=前を向いたまま後ろへ跳ぶ。dur 秒で dist m 進む。iframe 秒は無敵
-const DODGE={roll:{dur:0.5,dist:3.2,iframe:0.3,cd:0.6},hop:{dur:0.42,dist:2.8,iframe:0.22,cd:0.55,vy:3.6}};
-// 回避中の速さ：はじめ速く、だんだん遅く（合計で dist 進む）。近接の踏み込みは今までどおり 24
-function dodgeSpeed(e){ if(!(e.dodgeT>0)) return 24; const k=clamp(e.dodgeT/e.dodgeDur,0,1); return 2*e.dodgeDist/e.dodgeDur*k; }
+const DODGE={roll:{dur:0.55,dist:3.2,iframe:0.3,cd:0.6},hop:{dur:0.5,dist:2.8,iframe:0.22,cd:0.55,vy:3.6}};
+// 回避中の速さ：動き（Mixamo）に合わせて、少し速めに出て真ん中で一番速く、最後はゆっくり（合計で dist 進む）。近接の踏み込みは今までどおり 24
+function dodgeSpeed(e){ if(!(e.dodgeT>0)) return 24; const u=1-clamp(e.dodgeT/e.dodgeDur,0,1); return e.dodgeDist/e.dodgeDur*Math.sin(Math.PI*(0.1+0.9*u))/0.69; }
 function tryStep(e,dx,dz,kind='roll'){
   if(e.hp<=0||!e.onGround||e.dashT>0||e.healT>0||(e.stepCD||0)>0||e.dodgeT>0) return false;
   const l=Math.hypot(dx,dz); if(l<0.01) return false;
