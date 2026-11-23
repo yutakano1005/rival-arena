@@ -2836,7 +2836,23 @@ function buildViewmodels(){
   const lk=JSON.stringify(myLook);
   if(!playerModel||lk!==playerLookKey){ disposeModel(playerModel); playerLookKey=lk; playerModel=buildRival(resolveLook(myLook)); playerModel.root.visible=false; pModelState={lx:null,lz:null,walk:0}; }
   armModel(playerModel,player,()=>playerModel);
+  warmShaders(); for(const md of [rivalModel,playerModel]) if(md&&md.ready) md.ready.then(()=>warmShaders());
 }
+// 初めて画面に出る物があると、その場でシェーダーを作る・テクスチャを送るので一瞬止まる
+// （例：肩越しで転がって壁際に寄り一人称の手に切り替わった瞬間、初めて覗いた瞬間）。
+// 試合の始め（と、キャラや銃の読み込みが終わったとき）に、隠れている物もまとめて準備しておく
+let warmQ=0;
+function warmShaders(){ clearTimeout(warmQ); warmQ=setTimeout(()=>{
+  const hid=[], texs=new Set();
+  try{
+    scene.traverse(o=>{ if(!o.visible&&!o.isLight){ hid.push(o); o.visible=true; }
+      const ms=o.material?(Array.isArray(o.material)?o.material:[o.material]):[];
+      for(const m of ms) for(const k in m){ const v=m[k]; if(v&&v.isTexture) texs.add(v); } });
+    renderer.compile(scene,camera);
+    for(const t of texs) if(t.image&&!t.isRenderTargetTexture) try{ renderer.initTexture(t); }catch(e){}
+  }catch(e){ console.warn('warmShaders',e); }
+  for(const o of hid) o.visible=false;
+},50); }
 // キャラの体に銃と近接武器を持たせる（rival・自分の体で共通）
 function armModel(md,e,cur){
   // VRoid のキャラ：右手の骨に銃と近接武器を持たせる（体の読み込みが終わってから）
@@ -3410,7 +3426,7 @@ const SKINS=[
   {id:'chappy',name:'チャッピー',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
     look:{vrm:'chappy',jacket:'#2b2f3a',glove:'#e9c9ae'}},
   {id:'hinata',name:'ひなた',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
-    look:{vrm:'hinata',jacket:'#e8e8ec',glove:'#f0d2b8'}},
+    look:{vrm:'hinata',jacket:'#e3d3b8',glove:'#f0d2b8'}},   // 袖＝クリーム色のカーディガン、手＝素手
   {id:'blanca',name:'ブランカ',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
     look:{vrm:'blanca',jacket:'#3f74d8',glove:'#1c1c1e'}},   // 一人称の袖＝青い服、手＝黒い手袋
   {id:'yoshihiko',name:'よしひこ',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
@@ -3431,9 +3447,15 @@ function sanitizeLook(o){ const L={...LOOK_DEF}; if(!o||typeof o!=='object') ret
   return L; }
 let myLook={...LOOK_DEF}; try{ myLook=sanitizeLook(JSON.parse(localStorage.getItem('rivalArenaLook')||'null')); }catch(e){}
 if(!skinOwned(SKIN_BY[myLook.sk])) myLook.sk='custom';
+const SLV_TEX={sm:W.sleeve.map,sn:W.sleeve.normalMap,gm:W.glove.map,gn:W.glove.normalMap};
 function applySleeve(){ const L=resolveLook(myLook);   // 一人称の袖・手袋もスキンの色に
-  W.sleeve.color.set(L.jacket).multiplyScalar(2.2);
-  if(L.glove) W.glove.color.set(L.glove).multiplyScalar(1.6); else W.glove.color.set(0x4a4740); }
+  // 3Dキャラ（VRM）のスキン：袖は迷彩の布ではなく、その服の色の無地。素手のキャラは手も肌色の無地（手袋に見えないように）
+  const vrm=!!L.vrm, skin=vrm&&L.glove&&new THREE.Color(L.glove).getHSL({}).l>0.5;
+  W.sleeve.map=vrm?null:SLV_TEX.sm; W.sleeve.normalMap=vrm?null:SLV_TEX.sn; W.sleeve.roughness=vrm?0.9:1;
+  W.glove.map=skin?null:SLV_TEX.gm; W.glove.normalMap=skin?null:SLV_TEX.gn; W.glove.roughness=skin?0.6:0.85;
+  W.sleeve.needsUpdate=W.glove.needsUpdate=true;
+  W.sleeve.color.set(L.jacket).multiplyScalar(vrm?0.78:2.2);   // 無地は照明で明るく見えるので少し暗めに
+  if(L.glove){ W.glove.color.set(L.glove).multiplyScalar(skin?0.82:1.6); } else W.glove.color.set(0x4a4740); }
 applySleeve();
 function saveLook(){ try{ localStorage.setItem('rivalArenaLook',JSON.stringify(myLook)); }catch(e){} applySleeve(); charaThumb=null; }
 let charaR=null, charaS=null, charaC=null, charaM=null, charaRot=0.6, charaThumb=null, charaBack='title', charaDrag=null, charaPrev='custom';
