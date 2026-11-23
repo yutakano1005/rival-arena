@@ -2154,6 +2154,12 @@ const _af=new THREE.Vector3(), _ar=new THREE.Vector3(), _au=new THREE.Vector3(),
 function aimHead(m,pit,k){
   m.root.updateMatrixWorld(true);
   const rq=m.root.getWorldQuaternion(_aq2), p=clamp(pit,-1.0,1.0);
+  // 上半身：下半身の動き（歩く・走る）で腰が前や横に傾いた分を、背骨で戻す（上半身の動きは待機の腰の上で作られているため）
+  if(m.hipsRef){ const hc=m.hipsN.getWorldQuaternion(new THREE.Quaternion());
+    const dw=rq.clone().multiply(m.hipsRef).multiply(hc.invert());   // 今の腰 → 待機の腰（ワールド）
+    dw.slerp(new THREE.Quaternion(),1-k);
+    const sp=m.spineN; sp.parent.getWorldQuaternion(_ap);
+    sp.quaternion.premultiply(_ap.clone().invert().multiply(dw).multiply(_ap)); }
   _df.set(Math.cos(p),Math.sin(p),0).applyQuaternion(rq); _dr.set(0,0,1).applyQuaternion(rq); _du.crossVectors(_dr,_df).normalize(); _dr.crossVectors(_df,_du).normalize();
   _am2.makeBasis(_df,_du,_dr);
   for(const L of m.look){ const n=L.n;
@@ -2188,6 +2194,10 @@ function buildVrmRival(L,parent){
           r:new THREE.Vector3(0,0,1).applyQuaternion(rq).applyQuaternion(q)}; }).filter(Boolean); }
     m.clips=vrmClips(vrm); m.mixer=new THREE.AnimationMixer(sc); m.cur={L:null,U:null,F:null};
     m.play('L','idle',{fade:0}); m.play('U','idle',{fade:0}); m.mixer.update(0.001); vrm.update(0.001);   // 待機ポーズを完全に当ててから手の位置を測る
+    // 待機のときの腰の向き（キャラから見た向き）。歩く・走るで腰が傾いても、上半身はこの腰の上にあるように直す
+    { const hp=vrm.humanoid.getNormalizedBoneNode('hips'), sp=vrm.humanoid.getNormalizedBoneNode('spine');
+      if(hp&&sp){ root.updateMatrixWorld(true); m.hipsN=hp; m.spineN=sp;
+        m.hipsRef=root.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(hp.getWorldQuaternion(new THREE.Quaternion())); } }
     // 手に武器を付ける台座（待機ポーズの手の位置・向きから計算）
     const hr=vrm.humanoid.getRawBoneNode('rightHand'), mid=vrm.humanoid.getRawBoneNode('rightMiddleProximal');
     const r0=root.rotation.y, p0=root.position.clone(); root.rotation.set(0,0,0); root.position.set(0,0,0); root.updateMatrixWorld(true);
@@ -3534,8 +3544,12 @@ function shootOnce(e){
     camera.getWorldDirection(_v); _r.set(1,0,0).applyQuaternion(camera.quaternion); _u.set(0,1,0).applyQuaternion(camera.quaternion);
     const ads=adsAmt>0.6; let sp=wp.spread*(ads?0.5:1); if(wp.name==='スナイパー'&&!ads) sp+=0.05;
     // 弾の出る所：一人称はカメラ、肩越しは自分の目の位置から画面の真ん中が指す所へ
-    const tps=tpsShooting(), O=tps?tpsEye.clone():camera.position.clone().setY(camera.position.y-0.03);
-    if(tps) _v.copy(tpsAimPoint(_v)).sub(O).normalize();
+    const tps=tpsShooting(); let O=camera.position.clone().setY(camera.position.y-0.03);
+    if(tps){ const aim=tpsAimPoint(_v.clone()); O=tpsEye.clone();
+      // 見えている銃の先から撃つ（銃口が壁の向こうにめり込んでいるときは目の位置から）
+      const pm=playerModel; if(pm&&pm.root.visible&&pm.muzzle){ pm.muzzle.updateWorldMatrix(true,false); const mz=pm.muzzle.getWorldPosition(new THREE.Vector3());
+        if(camReach(tpsEye,mz)>=1&&mz.distanceTo(tpsEye)<1.5&&aim.distanceTo(tpsEye)>1.2) O=mz; }
+      _v.copy(aim).sub(O).normalize(); }
     const dirs=[];
     for(let i=0;i<wp.pellets;i++){
       const d=_v.clone().addScaledVector(_r,rand(-sp,sp)).addScaledVector(_u,rand(-sp,sp)).normalize();
