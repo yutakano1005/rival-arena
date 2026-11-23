@@ -2174,6 +2174,36 @@ function aimHead(m,pit,k,spineOnly){
     n.quaternion.premultiply(_ap.clone().invert().multiply(d).multiply(_ap));
   }
 }
+// ----- 回避の見た目：体ごと回す（転がる）／後ろへ反る（後ろ跳び）。キャラの台座（pivot）を腰のあたりを中心に動かす -----
+const _dq=new THREE.Quaternion(), _dq2=new THREE.Quaternion(), _dc=new THREE.Vector3(), _dax=new THREE.Vector3(0,0,-1), _day=new THREE.Vector3(0,1,0);
+function dodgeProg(e){ return e&&e.dodgeT>0&&e.dodgeDur>0?1-clamp(e.dodgeT/e.dodgeDur,0,1):-1; }
+function applyDodgePose(m,e){
+  const pv=m.pivot, t=dodgeProg(e);
+  if(t<0||e.hp<=0){ if(m.dodgePose){ m.dodgePose=false; pv.quaternion.identity(); pv.position.set(0,0,0); pv.scale.setScalar(1); } return; }
+  m.dodgePose=true;
+  // 動く向き（キャラから見て）：前 lf、横 ls（+ が右）
+  const ca=Math.cos(e.angle), sa=Math.sin(e.angle), lf=e.ddx*ca+e.ddz*sa, ls=-e.ddx*sa+e.ddz*ca;
+  let s=1, lift=0; const c=_dc;
+  if(e.dodgeKind==='hop'){
+    c.set(0,0.9,0); _dq.setFromAxisAngle(_dax,-0.38*Math.sin(Math.PI*t));   // 後ろへ反る
+  } else {
+    // 転がる向きへ体を向けて（横なら 90° 向きを変える）、前回り。最後は元の向きへ戻る
+    const psi=Math.atan2(-ls,lf), w=smooth(clamp(t/0.15,0,1))*smooth(clamp((1-t)/0.22,0,1));
+    const th=Math.PI*2*smooth(clamp((t-0.06)/0.8,0,1));
+    _dq.setFromAxisAngle(_day,psi*w).multiply(_dq2.setFromAxisAngle(_dax,th));
+    // 体は丸まっている（m.tuck）ので、回す中心は丸まった体の真ん中あたり。少しだけ縮める
+    const tw=smooth(clamp(t/0.12,0,1))*smooth(clamp((1-t)/0.2,0,1));
+    // 丸まった体の真ん中は腰の高さ（約0.92m）。ここを中心に回し、丸まっている間は体ごと下げて床を転がるようにする
+    s=1-0.08*Math.sin(th/2)**2; c.set(0,0.92,0); lift=-0.47*tw;
+  }
+  pv.quaternion.copy(_dq); pv.scale.setScalar(s);
+  pv.position.copy(c).sub(c.clone().multiplyScalar(s).applyQuaternion(_dq)); pv.position.y+=lift;
+}
+// 一人称：回避中にカメラを下げる・少し傾ける
+function dodgeCam(p){ const t=dodgeProg(p); if(t<0) return {dip:0,roll:0};
+  const k=Math.sin(Math.PI*t); if(p.dodgeKind==='hop') return {dip:0.12*k,roll:0};
+  const ca=Math.cos(playerAngle()), sa=Math.sin(playerAngle()), ls=-p.ddx*sa+p.ddz*ca;
+  return {dip:0.85*k,roll:-ls*0.35*k}; }
 // 骨 n をワールドでの回転 d だけ回す
 function rotWorld(n,d){ n.parent.getWorldQuaternion(_ap); n.quaternion.premultiply(_ap.clone().invert().multiply(d).multiply(_ap)); n.updateWorldMatrix(false,true); }
 const _gp=new THREE.Vector3(), _gq=new THREE.Quaternion(), _gd=new THREE.Vector3(), _gt=new THREE.Vector3();
@@ -2240,6 +2270,10 @@ function buildVrmRival(L,parent){
       m.look=[['neck',0.5],['head',0.9]].map(([b,w])=>{ const n=vrm.humanoid.getNormalizedBoneNode(b); if(!n) return null;
         const q=n.getWorldQuaternion(new THREE.Quaternion()).invert(); return {n,w,f:fw.clone().applyQuaternion(q),
           r:new THREE.Vector3(0,0,1).applyQuaternion(rq).applyQuaternion(q)}; }).filter(Boolean);
+      // 前転で体を丸める：骨ごとに「体の横の軸」（骨から見た向き）と曲げる角度（+ で前へ折る：太もも、- で前へ丸める：背中・首、ひざは - で曲がる）
+      m.tuck=[['spine',-0.45],['chest',-0.45],['upperChest',-0.25],['neck',-0.35],['head',-0.35],['leftUpperLeg',1.9],['rightUpperLeg',1.9],['leftLowerLeg',-2.3],['rightLowerLeg',-2.3]]
+        .map(([b,a])=>{ const n=vrm.humanoid.getNormalizedBoneNode(b); if(!n) return null;
+          return {n,a,r:new THREE.Vector3(0,0,1).applyQuaternion(rq).applyQuaternion(n.getWorldQuaternion(new THREE.Quaternion()).invert())}; }).filter(Boolean);
       // 左手の「指の向き」と「手のひらの向き」（T ポーズでは手のひらは下向き）を手の骨から見た向きで覚える
       const lh=vrm.humanoid.getNormalizedBoneNode('leftHand'), lm=vrm.humanoid.getNormalizedBoneNode('leftMiddleProximal');
       if(lh&&lm){ const iq=lh.getWorldQuaternion(new THREE.Quaternion()).invert();
@@ -2259,8 +2293,10 @@ function buildVrmRival(L,parent){
     const inv=new THREE.Matrix4().copy(hr.matrixWorld).invert();
     const mount=(group,quat,gripPt)=>{ const M=new THREE.Matrix4().compose(palm.clone().sub(gripPt.clone().applyQuaternion(quat)),quat,new THREE.Vector3(1,1,1));
       const Lm=inv.clone().multiply(M); Lm.decompose(group.position,group.quaternion,group.scale); hr.add(group); };
-    m.mountGun=(rg,scale)=>{ gunG.clear(); const [gu,gv]=rg.b.grip; rg.group.scale.setScalar(scale);
-      mount(gunG,new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),-Math.PI/2),new THREE.Vector3(0,gv,-gu).multiplyScalar(scale).applyAxisAngle(new THREE.Vector3(0,1,0),0));
+    m.mountGun=(rg,scale)=>{ gunG.clear(); const [gu,gv,ga,,ghw]=rg.b.grip; rg.group.scale.setScalar(scale);
+      // 手のひらの真ん中 ＝ 握りの上端から握りに沿って少し下、握りの右側の面
+      const dd=rg.b.pistol?0.04:0.03, gpu=gu-Math.sin(ga||0)*dd, gpv=gv-Math.cos(ga||0)*dd;
+      mount(gunG,new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),-Math.PI/2),new THREE.Vector3((ghw||0.013)*0.9,gpv,-gpu).multiplyScalar(scale));
       gunG.add(rg.group); m.gunObj=rg.group; m.lhTarget=leftHandPoint(rg.b);
       // 左手の向き（銃の座標）：f=指の向き p=手のひらが向く向き。ピストルは右手の左側を包む、ほかは前の握る所を下から支える
       m.lhDir=rg.b.pistol?{f:PISTOL_LH_F.clone(),p:new THREE.Vector3(1,0,0)}:{f:new THREE.Vector3(1,0.1,-0.45),p:new THREE.Vector3(0,1,0)}; };
@@ -2297,7 +2333,8 @@ function buildVrmRival(L,parent){
         if(m.cur.F){ m.stopLayer('F',0.1); lx=e.x; lz=e.z; }
         // 下半身
         let low='idle', sp=1;
-        if(!e.onGround) low='jump';
+        if(e.dodgeT>0) low=e.dodgeKind==='hop'?'back':'idle';   // 回避中（ジャンプの動きは腰が浮くので使わない。前転は待機の脚から丸める）
+        else if(!e.onGround) low='jump';
         else if(vs>0.6){ if(Math.abs(vfs)>=Math.abs(vss)) low=vfs>0?(vs>3.6?'run':'walk'):'back'; else low=vss>0?'right':'left'; sp=Math.min(1.8,Math.max(0.7,vs/(CLIP_SPEED[low]||3))); }
         m.play('L',low,{loop:low!=='jump',speed:sp});
         // 上半身
@@ -2316,17 +2353,21 @@ function buildVrmRival(L,parent){
     m.vrm.expressionManager?.setValue('blink',blink>0?Math.sin((1-blink/0.12)*Math.PI):0);
     m.mixer.update(dt);
     // 顔を狙う方向へ：動きのデータのままだと走るときなどに頭が下や横を向くので、背中・首・頭を少しずつ回して前（と上下の狙い）を向かせる
-    const alive=e&&e.hp>0&&!m.cur.F, lw=alive&&!(e.slot===1&&e.swingT>0)?1:0;
-    m.lookW=(m.lookW||0)+(lw-(m.lookW||0))*Math.min(1,dt*8);
+    const alive=e&&e.hp>0&&!m.cur.F, dodging=e&&e.dodgeT>0, lw=alive&&!dodging&&!(e.slot===1&&e.swingT>0)?1:0;
+    m.lookW=(m.lookW||0)+(lw-(m.lookW||0))*Math.min(1,dt*(dodging?20:8));
     // 銃を構えているとき（撃つ・待機・移動。リロード中は除く）：銃口を狙う所へ向け、左手を銃に添える
-    const gw=alive&&e.slot===0&&!(e.reloadT>0)&&e.switchT<=0?1:0;
-    m.gunW=(m.gunW||0)+(gw-(m.gunW||0))*Math.min(1,dt*10);
+    const gw=alive&&!dodging&&e.slot===0&&!(e.reloadT>0)&&e.switchT<=0?1:0;
+    m.gunW=(m.gunW||0)+(gw-(m.gunW||0))*Math.min(1,dt*(dodging?20:10));
     if(m.look&&m.lookW>0.01){
       aimHead(m,e?e.aimPitch||0:0,m.lookW,true);   // 腰の傾きを背骨で戻す
       if(m.gunW>0.01&&e.aimTarget) aimGun(m,e.aimTarget,m.gunW);
       if(m.gunW>0.01&&m.lArm) leftHandIK(m,m.gunW);
       aimHead(m,e?e.aimPitch||0:0,m.lookW,false);  // 首・頭
     }
+    // 前転：体を丸める（入りと終わりはなめらかに）
+    const tp=e&&e.dodgeKind==='roll'?dodgeProg(e):-1;
+    if(tp>=0&&m.tuck&&e.hp>0){ const w=smooth(clamp(tp/0.12,0,1))*smooth(clamp((1-tp)/0.2,0,1));
+      for(const T of m.tuck) T.n.quaternion.multiply(_dq.setFromAxisAngle(T.r,T.a*w)); }
     m.vrm.update(dt); };
   // キャラ作成の画面などで使う（時刻 t から経過時間を出して待機アニメ）
   let lt=null; m.tick=t=>{ const dt=lt==null?0:t-lt; lt=t; if(!m.driven) m.update(dt,null); };
@@ -3186,6 +3227,7 @@ function onNet(m){
         if(rival.slot!==m.sl){ rival.slot=m.sl; } }
       break;
     case 'f': if(isOnline()&&rival&&(state==='fight'||state==='roundEnd')) netShot(m); break;
+    case 'dg': if(isOnline()&&rival&&(m.k==='roll'||m.k==='hop')){ const D=DODGE[m.k]; rival.dodgeKind=m.k; rival.dodgeT=rival.dodgeDur=D.dur; rival.ddx=+m.x||0; rival.ddz=+m.z||0; } break;   // 相手の回避（見た目だけ。位置は相手から届く）
     case 'ch': if(isOnline()&&rival){ if(m.on){ if(rival.weap.charge) chargeStart(rival); } else if(rival.chargeT>=0){ rival.chargeT=-1; stopChargeSfx(rival); } } break;   // 相手のチャージ（光と音だけ）
     case 'w': if(isOnline()&&rival&&state==='fight'){ const md=rival.melee; rival.slot=1; rival.swingDur=Math.min(0.34,md.rate*0.92); rival.swingT=rival.swingDur; rival.swingDir=m.dir||1;
       sfxSwish(rival,md); const heavy=md.model==='axe'||md.model==='hammer'||md.model==='scythe'; rival.pendHit=rival.swingDur*(heavy?0.3:0.2); } break;
@@ -3597,6 +3639,7 @@ function spawnBullet(owner,ox,oy,oz,dx,dy,dz,wp){
 function fire(e){
   const wp=e.weap;
   if(e.reloadT>0||e.cool>0||e.burstLeft>0) return;
+  if(e.dodgeT>0&&e.dodgeKind==='roll') return;   // 転がっている間は撃てない
   if(e.ammo<=0){ if(e===player) sfxTrigger(true); startReload(e); return; }
   e.cool=wp.rate*(e.infT>0?0.7:1);
   if(wp.burst){ e.burstLeft=wp.burst-1; e.burstT=0.07; }
@@ -3736,6 +3779,8 @@ function dodgeFx(foe=false){ const now=performance.now(); if(now-lastDodge<300) 
   if(actx){ noise('highpass',5000,2500,0.12,foe?0.1:0.18,0.8); beep(foe?1200:1800,0.12,0.06,'sine',0,foe?700:2600); } }
 // 回避の動き：roll=転がる（前・左右）、hop=前を向いたまま後ろへ跳ぶ。dur 秒で dist m 進む。iframe 秒は無敵
 const DODGE={roll:{dur:0.5,dist:3.2,iframe:0.3,cd:0.6},hop:{dur:0.42,dist:2.8,iframe:0.22,cd:0.55,vy:3.6}};
+// 回避中の速さ：はじめ速く、だんだん遅く（合計で dist 進む）。近接の踏み込みは今までどおり 24
+function dodgeSpeed(e){ if(!(e.dodgeT>0)) return 24; const k=clamp(e.dodgeT/e.dodgeDur,0,1); return 2*e.dodgeDist/e.dodgeDur*k; }
 function tryStep(e,dx,dz,kind='roll'){
   if(e.hp<=0||!e.onGround||e.dashT>0||e.healT>0||(e.stepCD||0)>0||e.dodgeT>0) return false;
   const l=Math.hypot(dx,dz); if(l<0.01) return false;
@@ -3962,8 +4007,8 @@ function renderKeys(){
     <div class="kbgrid"><div class="kbhead"><span></span><span class="kbk"><i>メイン</i><i>サブ</i></span></div><div class="kbhead kbh2"><span></span><span class="kbk"><i>メイン</i><i>サブ</i></span></div>
     ${KEY_ACTS.map(([a,n])=>`<div class="kbrow"><span>${n}</span><span class="kbk">${[1,2].map(sl=>{ const id=a+':'+sl, w=kbWait===id, v=(sl===1?KB:KB2)[a];
       return `<b class="${w?'wait':''} ${sl===2&&!v?'empty':''}" data-kb="${id}">${w?'押して…':v?keyLabel(v):'＋'}</b>`; }).join('')}</span></div>`).join('')}</div>
-    <div style="margin:10px 0 2px"><button class="pbtn" id="kbDtap" style="margin:0;font-size:15px;padding:6px 16px;${dtapOn?'color:#06d6a0;border-color:#06d6a0':''}">⇄ 移動キーの連打（2回：ステップ／3回：走る）：${dtapOn?'ON':'OFF'}</button>
-      <div style="font-size:13px;opacity:.7;margin-top:4px">前後左右のキーを素早く2回押すと、その方向へ約2mすばやく移動。出た瞬間だけごくわずかに無敵（地上のみ）<br>さらに3回目を押してそのまま押しっぱなしにすると、キーを離すまで走る（Shift不要）</div></div>
+    <div style="margin:10px 0 2px"><button class="pbtn" id="kbDtap" style="margin:0;font-size:15px;padding:6px 16px;${dtapOn?'color:#06d6a0;border-color:#06d6a0':''}">⇄ 移動キーの連打（2回：回避／3回：走る）：${dtapOn?'ON':'OFF'}</button>
+      <div style="font-size:13px;opacity:.7;margin-top:4px">前・左・右のキーを素早く2回押すとその方向へ転がって回避、後ろは前を向いたまま後ろへ跳ぶ（約3m）。出た瞬間だけ少し無敵（地上のみ・転がっている間は撃てない）<br>さらに3回目を押してそのまま押しっぱなしにすると、キーを離すまで走る（Shift不要）</div></div>
     <p style="font-size:13px;opacity:.6">マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み　ホイール：持ち替え　ESC：一時停止（この3つは固定）</p>
     <button class="pbtn" id="kbReset">↺ 初期設定に戻す</button><button class="pbtn" id="kbBack" style="color:#7bdff2;border-color:#7bdff2">✔ ${kbFrom==='pause'?'ゲームに戻る':'タイトルに戻る'}</button>`;
   ovbox.querySelectorAll('[data-kb]').forEach(r=>r.onclick=ev=>{ ev.stopPropagation(); kbMsg=''; kbWait=kbWait===r.dataset.kb?null:r.dataset.kb; renderKeys(); });
@@ -4430,7 +4475,7 @@ function showOverlay(kind){
   if(kind==='title') ovbox.innerHTML=`<h1>ライバル・アリーナ 3D</h1>
     <p>宿命のライバル「<b style="color:#ff4d6d">${rivalName()}</b>」と1対1の撃ち合い。先に3勝した方が勝ち！</p>
     <p>銃 ${GUNS.length}種・近接 ${MELEES.length}種・ユーティリティ ${UTILS.length}種から装備を組んで戦おう</p>
-    <p class="keys">${KL('fwd')}${KL('left')}${KL('back')}${KL('right')}：移動　マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み<br>${KL('slot1')}・${KL('slot2')}・${KL('slot3')} / ホイール：持ち替え　${KL('prev')}：直前の武器　${KL('run')}：走る　${dtapOn?'移動キー2回：ステップ（一瞬無敵）・3回：走る　':''}${KL('crouch')}：しゃがみ（移動中はスライディング）　${KL('jump')}：ジャンプ　${KL('reload')}：リロード　ESC：一時停止</p>
+    <p class="keys">${KL('fwd')}${KL('left')}${KL('back')}${KL('right')}：移動　マウス：視点　左クリック：攻撃　右クリック：構える／踏み込み<br>${KL('slot1')}・${KL('slot2')}・${KL('slot3')} / ホイール：持ち替え　${KL('prev')}：直前の武器　${KL('run')}：走る　${dtapOn?'移動キー2回：回避（前・左右は転がる／後ろは後ろ跳び、一瞬無敵）・3回：走る　':''}${KL('crouch')}：しゃがみ（移動中はスライディング）　${KL('jump')}：ジャンプ　${KL('reload')}：リロード　ESC：一時停止</p>
     <p style="color:#b8f35d">頭に当てるとダメージ2倍。跳弾・爆発・炎は自分にも当たる</p>
     <p style="color:#c9b6ff">ラウンドの合間に強化カードを1枚選べる／2ラウンド目からは毎回「特別ルール」<br>アリーナに出るアイテムを奪い合え／${rivalName()}はあなたのクセを覚えて対策してくる</p>
     <div class="go">クリックして ${rivalName()} と対戦（ステージ選択へ）</div>
@@ -4473,7 +4518,7 @@ function updatePracHUD(){
   const acc=prac.shots?Math.round(prac.hits/prac.shots*100):0, w=player.weap, best=pracBest[w.name]||0;
   const h=`<div class="pt">🎯 射撃練習　<span style="color:${w.color}">${w.name}</span>${isOpen(w)?'':'<small style="color:#ffd166">（お試し）</small>'}</div>
     <div>命中率 <b>${acc}%</b>　撃破 <b>${prac.kills}</b>　ヘッドショット <b>${prac.heads}</b>　ダメージ <b>${Math.round(prac.dmg)}</b></div>
-    ${prac.chal?`<div class="pc">残り <b>${prac.t.toFixed(1)}</b> 秒　スコア <b>${prac.score}</b>　ベスト ${best}</div>`:`<div class="ph">${KL('chal')}：60秒チャレンジ（ベスト ${best}点）　${KL('pgun')}：銃を持ち替え　移動キー2回：ステップ　ESC：メニュー</div>`}`;
+    ${prac.chal?`<div class="pc">残り <b>${prac.t.toFixed(1)}</b> 秒　スコア <b>${prac.score}</b>　ベスト ${best}</div>`:`<div class="ph">${KL('chal')}：60秒チャレンジ（ベスト ${best}点）　${KL('pgun')}：銃を持ち替え　移動キー2回：回避　${KL('view')}：視点　ESC：メニュー</div>`}`;
   if(h!==hudCache.pr){ hudCache.pr=h; $('prac').innerHTML=h; }
 }
 function updateHUD(){
@@ -4553,11 +4598,12 @@ function render(){
   const wantAds=rightDown&&state==='fight'&&p.hp>0&&p.slot===0;
   adsAmt+=((wantAds?1:0)-adsAmt)*Math.min(1,1/60*14);
   killPunch=Math.max(0,killPunch-1/60*1.5);
-  const targetFov=75+((wp.name==='スナイパー'?20:55)-75)*adsAmt+(p.slideFov||0)*9*(1-adsAmt)+(p.dashT>0?10:0)-killPunch*12;
+  const targetFov=75+((wp.name==='スナイパー'?20:55)-75)*adsAmt+(p.slideFov||0)*9*(1-adsAmt)+(p.dashT>0?(p.dodgeT>0?4:10):0)-killPunch*12;
   if(Math.abs(camera.fov-targetFov)>0.01){camera.fov+= (targetFov-camera.fov)*0.5; camera.updateProjectionMatrix();}
   const bob=Math.sin(bobT)*0.035*(1-adsAmt*0.8);
-  camera.position.set(p.x+(Math.random()-0.5)*shake*0.1, p.y+1.62-p.crouch*0.8+bob-deathCam*1.25, p.z+(Math.random()-0.5)*shake*0.1);
-  camera.rotation.set(pitch+kick*0.3,yaw,deathCam*0.9+(p.slideFov||0)*0.07);
+  const dc=dodgeCam(p), dk=1-tpsAmt*(1-adsAmt); dc.dip*=dk; dc.roll*=dk;   // 回避中はカメラを下げて少し傾ける（一人称のときだけ）
+  camera.position.set(p.x+(Math.random()-0.5)*shake*0.1, p.y+1.62-p.crouch*0.8+bob-deathCam*1.25-dc.dip, p.z+(Math.random()-0.5)*shake*0.1);
+  camera.rotation.set(pitch+kick*0.3,yaw,deathCam*0.9+(p.slideFov||0)*0.07+dc.roll);
   const tw=updateViewCam(p);
   let scoped=false; if(!inMenu()){ scoped=updateHUD(); updateDmgNums(); }
   // 手持ちモデル
@@ -4601,6 +4647,7 @@ function render(){
   if(rm.isVrm){ rm.driven=true; rival.aimPitch=Math.atan2(player.y-rival.y,Math.max(1,dist(rival,player))); rival.aimTarget=new THREE.Vector3(player.x,player.y+1.25,player.z);   // 相手の方へ顔を上げ下げ
     if(rm.root.visible) rm.update(frameDt,rival); }   // VRoid のキャラ：状態に合わせて動きを選ぶ
   else { const swg=Math.sin(rival.walk)*0.55; rm.legs[0].rotation.z=swg; rm.legs[1].rotation.z=-swg; }
+  applyDodgePose(rm,rival);   // 転がる・後ろ跳び
   if(rm.tick&&rm.root.visible) rm.tick(performance.now()/1000);   // スキンの演出（マント・オーラ・発光など）
   for(const id of ['score','rivalbar']) $(id).style.display=practice?'none':'';
   if(practice) $('modtag').style.display='none';
@@ -4681,6 +4728,7 @@ function updatePlayerBody(p,tw){
   if(pm.isVrm){ pm.driven=true; pm.update(frameDt,pe); }
   else { const swg=Math.sin(S.walk)*0.55; pm.legs[0].rotation.z=swg; pm.legs[1].rotation.z=-swg;
     pm.pivot.rotation.z=p.hp<=0?Math.min(1.5,pm.pivot.rotation.z+frameDt*3):0; }
+  applyDodgePose(pm,pe);
   if(pm.tick) pm.tick(performance.now()/1000);
   const mel=p.slot===1&&!!pm.melee;
   pm.gunG.visible=p.slot===0; pm.gunArms.visible=!mel; pm.upper.visible=mel; if(pm.melee) pm.melee.visible=mel;
