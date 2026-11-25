@@ -1215,6 +1215,7 @@ function P(g,pts,w,mat,x=0,bev=0.0015,holes){
   const m=mesh(g,geo,mat); m.position.x=x; return m;
 }
 // 前後方向の円柱（u0側半径 r0 → u1側半径 r1）
+const BELT_N=30;   // マシンガンの弾帯に見える弾の数（装弾数と同じ）
 function B(g,r0,u0,u1,v,mat,x=0,seg=18,r1=r0,open=false){
   const geo=new THREE.CylinderGeometry(r0,r1,u1-u0,seg,1,open); geo.rotateX(Math.PI/2);
   const m=mesh(g,geo,mat); m.position.set(x,v,-(u0+u1)/2); return m;
@@ -1422,9 +1423,17 @@ const GUN_BUILD={
     X(g,0.056,0.07,0.082,0.108,-0.057,W.od,-0.008,0.004);                          // 弾薬箱
     X(g,0.058,0.008,0.084,0.108,-0.02,W.odPoly,-0.008,0.002);                     // ふた
     X(g,0.004,0.03,0.018,0.108,-0.055,W.dark,-0.0375,0.001);                      // 取っ手の金具
-    for(let i=0;i<7;i++){ const a=i/6*Math.PI, x=-0.03-Math.sin(a)*0.016, v=-0.014+i*0.0058;   // 弾帯（箱の口から差し込み口まで）。belt＝何発目（0＝箱の側）：残りの弾が減ると箱の側から消える
-      const m0=g.children.length; B(g,0.0042,0.088,0.118,v,W.brass,x,10); B(g,0.0042,0.118,0.131,v,W.copper,x,10,0.0012); X(g,0.01,0.003,0.008,0.1,v-0.0035,W.dark,x,0);
-      for(let j=m0;j<g.children.length;j++) g.children[j].userData.belt=i+1; }
+    // 弾帯：差し込み口からアーチを描いて下り、弾薬箱の左側を通って箱の下へたれ下がる。弾は BELT_N 発（1発目＝差し込み口の側）
+    // 残りの弾の数だけ見せるので、撃つたびにたれた先から1発ずつ減る
+    { const pts=[]; for(let k=0;k<=24;k++){ const a=Math.PI*(1-k/24); pts.push([-0.03-Math.sin(a)*0.016,-0.014+a/Math.PI*0.035]); }
+      pts.push([-0.043,-0.028],[-0.044,-0.094],[-0.05,-0.15],[-0.062,-0.21],[-0.075,-0.27]);
+      const L=[0]; for(let k=1;k<pts.length;k++) L.push(L[k-1]+Math.hypot(pts[k][0]-pts[k-1][0],pts[k][1]-pts[k-1][1]));
+      const at=s=>{ let k=1; while(k<pts.length-1&&L[k]<s) k++; const f=clamp((s-L[k-1])/((L[k]-L[k-1])||1),0,1), A=pts[k-1], Bp=pts[k];
+        return [A[0]+(Bp[0]-A[0])*f, A[1]+(Bp[1]-A[1])*f, Math.atan2(Bp[1]-A[1],Bp[0]-A[0])]; };
+      for(let i=0;i<BELT_N;i++){ const [x,v,ang]=at(i*0.0078), m0=g.children.length;
+        B(g,0.0042,0.088,0.118,v,W.brass,x,10); B(g,0.0042,0.118,0.131,v,W.copper,x,10,0.0012);
+        X(g,0.0078,0.0024,0.006,0.085,v,W.dark,x,0).rotation.z=ang;   // 弾どうしをつなぐ金具（弾の後ろ）
+        for(let j=m0;j<g.children.length;j++) g.children[j].userData.belt=i+1; } }
     for(let i=n0;i<g.children.length;i++) g.children[i].userData.magPart=true;
     B(g,0.0105,0.225,0.5,0.012,W.gm,0,16);
     X(g,0.05,0.032,0.09,0.27,-0.002,W.poly,0,0.006);
@@ -2875,12 +2884,13 @@ function warmShaders(){ clearTimeout(warmQ); warmQ=setTimeout(()=>{
   }catch(e){ console.warn('warmShaders',e); }
   for(const o of hid) o.visible=false;
 },50); }
-// マシンガンの弾帯：残りの弾に合わせて箱の側から消す（7発で全部）。一人称は弾薬箱を外している間は全部隠し、新しい箱を付けたら満タン
+// マシンガンの弾帯：残りの弾の数だけ見せる（1発撃つと1発消える。拡張マガジンで BELT_N より多いときは割合で）
+// 一人称は弾薬箱を外している間は全部隠し、新しい箱を付けたら満タン
 function updateBelt(list,e,v){ if(!list||!list.length||!e||!e.weap) return;
   if(v&&!(e.reloadT>0)) v.beltFull=false;
-  const box=!v||!v.magParts||!v.magParts.length||v.magParts[0].visible;
-  const k=v&&v.beltFull?7:Math.ceil(7*clamp(e.ammo/(e.weap.mag||30),0,1));
-  for(const o of list) o.visible=box&&o.userData.belt>=8-k; }
+  const box=!v||!v.magParts||!v.magParts.length||v.magParts[0].visible, mag=e.weap.mag||BELT_N;
+  const k=v&&v.beltFull?BELT_N:mag<=BELT_N?e.ammo:Math.ceil(e.ammo*BELT_N/mag);
+  for(const o of list) o.visible=box&&o.userData.belt<=k; }
 // キャラの体に銃と近接武器を持たせる（rival・自分の体で共通）
 function armModel(md,e,cur){
   // VRoid のキャラ：右手の骨に銃と近接武器を持たせる（体の読み込みが終わってから）
