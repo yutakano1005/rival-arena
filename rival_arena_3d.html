@@ -2253,6 +2253,18 @@ function dodgeCam(p){ const t=dodgeProg(p); if(t<0) return {dip:0,roll:0};
   const ca=Math.cos(playerAngle()), sa=Math.sin(playerAngle()), lf=p.ddx*ca+p.ddz*sa, ls=-p.ddx*sa+p.ddz*ca;
   if(Math.abs(ls)>Math.abs(lf)&&CD()?.clips?.dodgeL) return {dip:0.15*k,roll:-ls*0.12*k};   // 横へよける（転がらない）：少し沈んで少し傾く
   return {dip:0.85*k,roll:-ls*0.35*k}; }
+// 前へ突き出して構える銃（撃つときは腕ごと前へ出す動き）
+const HANDGUN=new Set(['ピストル','リボルバー']);
+// 頬を銃床に寄せる：首・頭を、キャラの右の軸で前へ倒し（-）、前の軸で右へかしげる（+）。k＝強さ 0〜1
+const CHEEK=[['neck',-0.2,0.18],['head',-0.25,0.28]];
+function cheekToGun(m,k){ const rq=m.root.getWorldQuaternion(_aq2);
+  const fw=new THREE.Vector3(1,0,0).applyQuaternion(rq), rt=new THREE.Vector3(0,0,1).applyQuaternion(rq), q=new THREE.Quaternion(), q2=new THREE.Quaternion();
+  for(const [b,pit,roll] of CHEEK){ const n=m.vrm.humanoid.getNormalizedBoneNode(b); if(!n) continue;
+    rotWorld(n,q.setFromAxisAngle(rt,pit*k).multiply(q2.setFromAxisAngle(fw,roll*k))); } }
+// 反動の姿勢：キャラの右の軸で、胸を後ろへ反らせる（銃口が上がる）。背骨も少しだけ。a＝角度（ラジアン）
+function recoilPose(m,a){ const rt=new THREE.Vector3(0,0,1).applyQuaternion(m.root.getWorldQuaternion(_aq2)), q=new THREE.Quaternion();
+  if(m.spineN) rotWorld(m.spineN,q.setFromAxisAngle(rt,a*0.3));
+  if(m.chestN) rotWorld(m.chestN,q.setFromAxisAngle(rt,a*0.7)); }
 // 骨 n をワールドでの回転 d だけ回す
 function rotWorld(n,d){ n.parent.getWorldQuaternion(_ap); n.quaternion.premultiply(_ap.clone().invert().multiply(d).multiply(_ap)); n.updateWorldMatrix(false,true); }
 const _gp=new THREE.Vector3(), _gq=new THREE.Quaternion(), _gd=new THREE.Vector3(), _gt=new THREE.Vector3();
@@ -2395,7 +2407,7 @@ function buildVrmRival(L,parent){
         let upN='idle', usp=1, uloop=true, urst=false;
         if(e.slot===1&&e.swingT>0){ upN=['slash1','slash2','slash3'][(e.swingDir>0?0:1)]; const cl=m.clips[upN]; usp=cl.d/Math.max(0.25,(e.swingDur||0.3)*1.6); uloop=false; if(lastSwing<=0) urst=true; }
         else if(e.slot===0&&e.reloadT>0){ upN='reload'; usp=m.clips.reload.d/Math.max(0.5,e.weap.reload); uloop=false; }
-        else if(e.slot===0&&e.firedT>0){ upN='fire'; }
+        else if(e.slot===0&&e.firedT>0&&HANDGUN.has(e.weap.name)){ upN='fire'; }   // ピストルは前へ突き出して撃つ。ほかの銃は構えたまま（顔を銃に寄せる：下の cheek）
         else if(hitT>0){ upN='hit'; uloop=false; }
         lastSwing=e.slot===1?e.swingT:0;
         if(dc) m.play('U',dc,dOpt);
@@ -2415,8 +2427,16 @@ function buildVrmRival(L,parent){
     if(m.look&&m.lookW>0.01){
       aimHead(m,e?e.aimPitch||0:0,m.lookW,true);   // 腰の傾きを背骨で戻す
       if(m.gunW>0.01&&e.aimTarget) aimGun(m,e.aimTarget,m.gunW);
+      // 反動（ピストル以外）：撃った瞬間に胸が後ろへ押されて銃口が跳ね上がり、すぐ戻る。強さは銃の反動（kick）しだい
+      if(e){ const ft=e.firedT||0; if(ft>(m.lastFT||0)+1e-3&&!HANDGUN.has(e.weap.name)) m.recoil=1; m.lastFT=ft; }
+      m.recoil=(m.recoil||0)*Math.exp(-dt*14);
+      if(m.recoil>0.01&&m.gunW>0.01) recoilPose(m,(0.05+(e.weap.kick||0.02)*2.2)*m.recoil*m.gunW);
       if(m.gunW>0.01&&m.lArm) leftHandIK(m,m.gunW);
       aimHead(m,e?e.aimPitch||0:0,m.lookW,false);  // 首・頭
+      // 肩に当てた銃（ピストル以外）を撃つとき：銃を顔まで上げるのではなく、首と頭を前へ倒して右へかしげ、頬を銃床に寄せる
+      const cw=gw&&e.firedT>0&&!HANDGUN.has(e.weap.name)?1:0;
+      m.cheekW=(m.cheekW||0)+(cw-(m.cheekW||0))*Math.min(1,dt*(cw?14:5));
+      if(m.cheekW>0.01) cheekToGun(m,m.cheekW);
     }
     // 前転：体を丸める（入りと終わりはなめらかに）
     const tp=e&&e.dodgeKind==='roll'?dodgeProg(e):-1;
@@ -2960,6 +2980,7 @@ function armModel(md,e,cur){
 // ================= 状態・装備 =================
 let state='title', round=1, stateT=0, paused=false, score={p:0,r:0};
 let bullets=[], throws=[], player, rival, yaw=-Math.PI/2, pitch=0;
+let vmRec=0, vmRecV=0, vmRecSide=0;
 let kick=0, shake=0, hurt=0, hitmarkT=0, adsAmt=0, bobT=0, flashT=0, rivalFlashT=0, deathCam=0;
 let dmgNums=[], roundStreak=0, bonusKeys=0, slowT=0, killPunch=0;
 // 視点：'fps' 一人称 / 'tps' 肩越し（右クリックで覗く間は一人称）。決着のときは自分のまわりを回るカメラ
@@ -3243,7 +3264,7 @@ function startRound(){
   curMod=rollMod(); if(curMod?.world) curMod.world();
   finishFighter(player,matchPerks.p); finishFighter(rival,matchPerks.r);
   applyHabitAI(rival);
-  yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0;
+  yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0; vmRec=vmRecV=0;
   clearRoundObjects(); setupPickups(); dmgNums.forEach(n=>n.el.remove()); dmgNums=[];
   // ライバルは VRoid のキャラ「ブランカ」（読み込めなければ今までの姿で戦う）
   setRivalLook({sk:'blanca'}); rivalModel.pivot.rotation.set(0,0,0);
@@ -3374,7 +3395,7 @@ function netStartRound(r,modId){
   GRAV=14; const th=currentTheme(); scene.fog.near=th.fogN; scene.fog.far=th.fogF;
   curMod=modId?MODS.find(m=>m.id===modId)||null:null; if(curMod?.world) curMod.world();
   finishFighter(player,matchPerks.p); finishFighter(rival,matchPerks.r);
-  yaw=host?-Math.PI/2:Math.PI/2; pitch=0; deathCam=0; kick=0;
+  yaw=host?-Math.PI/2:Math.PI/2; pitch=0; deathCam=0; kick=0; vmRec=vmRecV=0;
   clearRoundObjects(); setupPickups(); dmgNums.forEach(n=>n.el.remove()); dmgNums=[];
   setRivalLook(net.oppLook); rivalModel.pivot.rotation.set(0,0,0);
   buildViewmodels(); buildSlots(); $('rname').textContent=rivalName();
@@ -3717,7 +3738,7 @@ function startPractice(){
   clearRoundObjects(); for(const p of pickups) if(p.mesh) scene.remove(p.mesh); pickups=[];
   for(const t of targets) scene.remove(t.mesh); targets=[];
   for(const h of holes) scene.remove(h); holes=[];
-  yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0; pracGun=gi;
+  yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0; vmRec=vmRecV=0; pracGun=gi;
   buildViewmodels(); buildSlots(); hideBanner();
   state='fight'; paused=false; holdForModels(warmGuns());
   const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{});
@@ -3773,6 +3794,7 @@ function shootOnce(e){
     netSend({t:'f',o:[+O.x.toFixed(3),+O.y.toFixed(3),+O.z.toFixed(3)],d:dirs});
     e.firedT=0.3;
     kick=Math.min(0.15,kick+wp.kick); pitch=clamp(pitch+wp.kick*0.35,-1.5,1.5); yaw+=rand(-1,1)*wp.kick*0.1;
+    if(!tps){ vmRecV+=Math.min(1.2,0.12+wp.kick*12)*43; if(vmRec+vmRecV/43>1.6) vmRecV=(1.6-vmRec)*43; vmRecSide=rand(-1,1); }
     flashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.35);   // クロスボウは火が出ない
     if(tps){ const pe=Object.create(e); pe.angle=playerAngle(); rivalCasing(pe,wp,0); } else ejectCasing(wp);
     if(vm&&vm.bow){ vm.bow.released=true; vm.bow.relT=0; kick=Math.min(0.15,kick+0.05); shake=Math.max(shake,0.12); }
@@ -4679,6 +4701,8 @@ function update(dt){
   if(paused||inMenu()) return;
   if(loadWait){ showBanner('<div style="font-size:22px">キャラを読み込み中…</div>'); return; }   // 読み込みが終わるまで時間を止める
   stateT-=dt; hurt=Math.max(0,hurt-dt*2.5); shake=Math.max(0,shake-dt); hitmarkT-=dt; kick*=Math.pow(0.0005,dt);
+  // 一人称の反動（ばね）：撃つと銃が手前へ跳ねて銃口が上がり、少し揺れて戻る
+  for(let n=Math.ceil(dt/0.004),h=dt/n,i=0;i<n;i++){ vmRecV+=(-420*vmRec-29*vmRecV)*h; vmRec+=vmRecV*h; }
   flashT-=dt; rivalFlashT-=dt; boomT-=dt;
   if(subT>0){subT-=dt; if(subT<=0) $('sub').style.display='none';}
   if(state==='countdown'){ showBanner(`${roundBanner()}<div class="big">${Math.ceil(stateT)}</div>`);
@@ -4720,6 +4744,8 @@ function render(){
     const sw=p.switchT>0?p.switchT/0.22:0, by=Math.abs(Math.cos(bobT))*0.012-deathCam*0.5-sw*0.35, bx=Math.sin(bobT)*0.008;
     vm.gun.visible=p.slot===0&&!scoped; vm.melee.visible=p.slot===1; vm.util.visible=p.slot===2&&(p.utilCount>0||p.utilCD>0);
     if(p.slot===0){ const g=vm.gun; g.position.lerpVectors(HIP,vm.ads,adsAmt); g.position.z+=kick*0.9; g.position.y+=by; g.position.x+=bx; g.rotation.set(kick*2.2,0,0);
+      { const r=vmRec*(1-adsAmt*0.45), s=vmRecSide*Math.max(0,vmRec);   // 反動：手前へ下がる・銃口が上がる・少しねじれる
+        g.position.z+=r*0.06; g.position.y+=r*0.014; g.position.x+=s*0.006; g.rotation.x+=r*0.2; g.rotation.y+=s*0.05; g.rotation.z+=s*0.09; }
       updateReloadAnim(g,p,wp); }
     else { if(vm.rhand) vm.rhand.visible=false; if(reloadAnim&&p.reloadT>0) reloadAnim.last=1-p.reloadT/wp.reload; }
     if(p.slot===1){ const t=p.swingT>0?1-p.swingT/(p.swingDur||0.3):1, t0=vm.lastT!=null&&vm.lastT<=t?vm.lastT:t; vm.lastT=t;
