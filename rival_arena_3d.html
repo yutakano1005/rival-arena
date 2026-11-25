@@ -1215,7 +1215,7 @@ function P(g,pts,w,mat,x=0,bev=0.0015,holes){
   const m=mesh(g,geo,mat); m.position.x=x; return m;
 }
 // 前後方向の円柱（u0側半径 r0 → u1側半径 r1）
-const BELT_N=30;   // マシンガンの弾帯に見える弾の数（装弾数と同じ）
+const BELT_N=30, MINI_N=50;   // 弾帯に見える弾の数：マシンガン（装弾数と同じ）・ミニガン
 function B(g,r0,u0,u1,v,mat,x=0,seg=18,r1=r0,open=false){
   const geo=new THREE.CylinderGeometry(r0,r1,u1-u0,seg,1,open); geo.rotateX(Math.PI/2);
   const m=mesh(g,geo,mat); m.position.set(x,v,-(u0+u1)/2); return m;
@@ -1423,16 +1423,16 @@ const GUN_BUILD={
     X(g,0.056,0.07,0.082,0.108,-0.057,W.od,-0.008,0.004);                          // 弾薬箱
     X(g,0.058,0.008,0.084,0.108,-0.02,W.odPoly,-0.008,0.002);                     // ふた
     X(g,0.004,0.03,0.018,0.108,-0.055,W.dark,-0.0375,0.001);                      // 取っ手の金具
-    // 弾帯：差し込み口からアーチを描いて下り、弾薬箱の左側を通って箱の下へたれ下がる。弾は BELT_N 発（1発目＝差し込み口の側）
-    // 残りの弾の数だけ見せるので、撃つたびにたれた先から1発ずつ減る
+    // 弾帯：差し込み口からアーチを描いて下り、弾薬箱の左側に沿って箱の下の角まで。弾は BELT_N 発（1発目＝差し込み口の側）
+    // 一人称の画面に全部入るように細めの弾を詰めて並べる。残りの弾の数だけ見せるので、撃つたびに先（箱の下の角）から1発ずつ減る
     { const pts=[]; for(let k=0;k<=24;k++){ const a=Math.PI*(1-k/24); pts.push([-0.03-Math.sin(a)*0.016,-0.014+a/Math.PI*0.035]); }
-      pts.push([-0.043,-0.028],[-0.044,-0.094],[-0.05,-0.15],[-0.062,-0.21],[-0.075,-0.27]);
+      pts.push([-0.04,-0.028],[-0.04,-0.09],[-0.036,-0.096],[-0.02,-0.097]);
       const L=[0]; for(let k=1;k<pts.length;k++) L.push(L[k-1]+Math.hypot(pts[k][0]-pts[k-1][0],pts[k][1]-pts[k-1][1]));
       const at=s=>{ let k=1; while(k<pts.length-1&&L[k]<s) k++; const f=clamp((s-L[k-1])/((L[k]-L[k-1])||1),0,1), A=pts[k-1], Bp=pts[k];
         return [A[0]+(Bp[0]-A[0])*f, A[1]+(Bp[1]-A[1])*f, Math.atan2(Bp[1]-A[1],Bp[0]-A[0])]; };
-      for(let i=0;i<BELT_N;i++){ const [x,v,ang]=at(i*0.0078), m0=g.children.length;
-        B(g,0.0042,0.088,0.118,v,W.brass,x,10); B(g,0.0042,0.118,0.131,v,W.copper,x,10,0.0012);
-        X(g,0.0078,0.0024,0.006,0.085,v,W.dark,x,0).rotation.z=ang;   // 弾どうしをつなぐ金具（弾の後ろ）
+      for(let i=0;i<BELT_N;i++){ const [x,v,ang]=at(i*0.0045), m0=g.children.length;
+        B(g,0.0022,0.092,0.116,v,W.brass,x,8); B(g,0.0022,0.116,0.126,v,W.copper,x,8,0.0007);
+        X(g,0.0045,0.0016,0.005,0.089,v,W.dark,x,0).rotation.z=ang;   // 弾どうしをつなぐ金具（弾の後ろ）
         for(let j=m0;j<g.children.length;j++) g.children[j].userData.belt=i+1; } }
     for(let i=n0;i<g.children.length;i++) g.children[i].userData.magPart=true;
     B(g,0.0105,0.225,0.5,0.012,W.gm,0,16);
@@ -1558,6 +1558,16 @@ const GUN_BUILD={
     P(g,[[-0.035,-0.026],[0.0,-0.026],[-0.006,-0.04],[-0.02,-0.112],[-0.05,-0.106],[-0.04,-0.06]],0.026,W.poly,0,0.003);
     guard(g,-0.004,0.04,-0.026,-0.05,W.gm); trigger(g,0.016,-0.036);
     const pts=[]; for(let i=0;i<=8;i++){ const t=i/8; pts.push(V3(0.04-0.2*t,-0.01-0.16*t+0.04*t*t,-0.04-0.05*t)); } chain(g,pts,0.032,0.014,W.od);
+    // 給弾シュートの上に乗った弾帯（MINI_N 発。1発目＝銃の側）。残りの弾に合わせて先から消える（装弾数100なので1発＝2発ぶん）
+    { const L=[0]; for(let i=1;i<pts.length;i++) L.push(L[i-1]+pts[i].distanceTo(pts[i-1]));
+      const sp=Math.min(0.0046,(L[L.length-1]-0.006)/MINI_N);
+      for(let i=0;i<MINI_N;i++){ const s=0.004+i*sp; let k=1; while(k<pts.length-1&&L[k]<s) k++;
+        const A=pts[k-1], Bp=pts[k], p=A.clone().lerp(Bp,clamp((s-L[k-1])/(L[k]-L[k-1]),0,1)), d=Bp.clone().sub(A).normalize();
+        let nx=-d.y, ny=d.x; if(ny<0){ nx=-nx; ny=-ny; } const nl=Math.hypot(nx,ny)||1, off=0.0095;   // シュートの上の面
+        const x=p.x+nx/nl*off, v=p.y+ny/nl*off, u=-p.z, m0=g.children.length;
+        B(g,0.0022,u-0.016,u+0.008,v,W.brass,x,8); B(g,0.0022,u+0.008,u+0.018,v,W.copper,x,8,0.0007);
+        X(g,0.0042,0.0016,0.005,u-0.019,v,W.dark,x,0).rotation.z=Math.atan2(d.y,d.x);
+        for(let j=m0;j<g.children.length;j++) g.children[j].userData.belt=i+1; } }
     return {tip:[0.505,0.012],sight:0.075,grip:[-0.018,-0.026,0.22,0.017,0.0125,0.028],trig:[0.016,-0.034],vert:[0.096,-0.022,-0.03,0.014,0.0125],spin};
   },
   'グレネードランチャー':(g)=>{
@@ -1676,7 +1686,7 @@ function loadRealGun(id){
             const g2=geo.clone(); g2.setIndex(Bm); geo.setIndex(A);
             const mm=new THREE.Mesh(g2,m.material); mm.name=m.name+'_mag'; mm.userData.shared=true; mm.userData.magPart=true; meshes.push(mm); } }
         for(const m of meshes){ m.geometry.computeBoundingSphere(); }
-        GUN_SCN[id]=meshes; res(meshes); onRealGun(); },e=>rej(e)); };
+        GUN_SCN[id]=meshes; res(meshes); onRealGun(id); },e=>rej(e)); };
     if(window.GUN_DATA?.[id]){ parse(); return; }
     if(!/^[a-z0-9_]+$/.test(id)){ rej('bad id'); return; }
     const sc=document.createElement('script'); sc.src=`gun_${id}.js`;
@@ -1686,12 +1696,23 @@ function loadRealGun(id){
 }
 function preloadGun(wp){ const C=wp&&GUN_REAL[wp.name]; if(C) loadRealGun(C.id); }
 // 読み込みが終わったら、試合中の銃（自分・ライバル）を本物に差し替える
-function onRealGun(){ if(player&&rival&&vm&&typeof buildViewmodels==='function'&&(GUN_REAL[player.weap.name]||GUN_REAL[rival.weap.name])) buildViewmodels(); }
+function onRealGun(id){ const is=e=>e&&e.weap&&GUN_REAL[e.weap.name]&&GUN_REAL[e.weap.name].id===id;   // 読み込めた銃を持っている人がいるときだけ
+  if(player&&rival&&vm&&typeof buildViewmodels==='function'&&(is(player)||is(rival))) buildViewmodels(); }
 
+// 銃のモデルは種類ごとに1回だけ作って、あとは写しを使う（形と材質を使い回すので、持ち替えが軽い）
+const GUN_CACHE={};
 function makeGunModel(wp,hands,noLoad){
-  const g=new THREE.Group();
   const RC=GUN_REAL[wp.name], RS=RC&&GUN_SCN[RC.id];
   if(RC&&!RS&&!noLoad) loadRealGun(RC.id);
+  const key=wp.name+'|'+(hands?1:0)+'|'+(RS?1:0), src=GUN_CACHE[key]||(GUN_CACHE[key]=makeGunModelRaw(wp,hands));
+  const g=src.group.clone(true), A=[], Bc=[]; src.group.traverse(o=>A.push(o)); g.traverse(o=>{ Bc.push(o); if(o.isMesh) o.userData.shared=true; });
+  const map=new Map(A.map((o,i)=>[o,Bc[i]])), mp=o=>o?map.get(o)||null:null, ml=l=>l.map(mp);
+  const belt=ml(src.belt); belt.n=src.belt.n;
+  return {group:g,tip:src.tip.clone(),spin:mp(src.spin),sight:src.sight,b:src.b,offHand:ml(src.offHand),trigF:mp(src.trigF),trigM:ml(src.trigM),
+    bow:src.bow?{str:src.bow.str.map(s=>({...s,m:mp(s.m),tip:s.tip&&s.tip.clone?s.tip.clone():s.tip})),bolt:ml(src.bow.bolt),released:false,relT:9}:null,magParts:ml(src.magParts),belt}; }
+function makeGunModelRaw(wp,hands){
+  const g=new THREE.Group();
+  const RC=GUN_REAL[wp.name], RS=RC&&GUN_SCN[RC.id];
   let b;
   if(RS){ for(const m of RS){ const c=new THREE.Mesh(m.geometry,m.material); c.name=m.name; c.userData={...m.userData}; c.castShadow=true; c.receiveShadow=true; g.add(c); }
     b={tip:RC.tip,sight:RC.sight,grip:RC.grip,trig:RC.trig,fore:RC.fore,mag:RC.magAt,pistol:RC.pistol,real:true,adsZ:RC.adsZ||-0.17}; }   // 覗くときは頬を銃床に付けるくらい近く（銃床が画面に映らないように）
@@ -1708,7 +1729,9 @@ function makeGunModel(wp,hands,noLoad){
   const trigF=g.children.find(c=>c.userData.trigFinger)||null, trigM=[], magParts=g.children.filter(c=>c.userData.magPart);   // magParts：リロードで外れる部品
   g.traverse(c=>{ if(c.userData.trig){ c.userData.x0=c.position.x; trigM.push(c); } });
   const bow=g.userData.bowStr?{str:g.userData.bowStr,bolt:g.userData.bolt||[],released:false,relT:9}:null;
-  const belt=g.children.filter(c=>c.userData.belt);   // マシンガンの弾帯の弾
+  delete g.userData.bowStr; delete g.userData.bolt;   // 写しを作るとき userData は文字にして写されるので、物への参照は残さない
+  const belt=g.children.filter(c=>c.userData.belt);   // マシンガン・ミニガンの弾帯の弾
+  belt.n=belt.reduce((a,c)=>Math.max(a,c.userData.belt),0);
   return {group:g,tip:V3(b.tip[0],b.tip[1]),spin:b.spin||null,sight:b.sight,b,offHand,trigF,trigM,bow,magParts,belt};
 }
 
@@ -2689,7 +2712,8 @@ function rivalCasing(e,wp,d){
 function reloadEvent(name,wp){
   const vis=vm&&vm.gun.visible;
   // 外れる部品（マシンガンの弾薬箱など）：外したら消し、付けたら戻す
-  if(vm&&vm.magParts&&vm.magParts.length){ if(name==='magOut'||name==='boxOut') vm.magParts.forEach(o=>o.visible=false); if(name==='magIn'||name==='boxIn'){ vm.magParts.forEach(o=>o.visible=true); vm.beltFull=true; } }   // 新しい箱＝弾帯は満タン
+  if(vm&&vm.magParts&&vm.magParts.length){ if(name==='magOut'||name==='boxOut') vm.magParts.forEach(o=>o.visible=false); if(name==='magIn'||name==='boxIn') vm.magParts.forEach(o=>o.visible=true); }
+  if(vm&&(name==='magIn'||name==='boxIn')) vm.beltFull=true;   // 新しい箱＝弾帯は満タン
   if(name==='spinUp'&&wp.name!=='ミニガン') return;   // 回転音はミニガンだけ
   const dropProp=(u,v,x=0)=>{ if(!vis) return; vm.gun.getWorldQuaternion(_q); camAxes();
     const o=makeProp(reloadKind(wp).prop,wp), pos=gunPoint(u,v,x);
@@ -2846,7 +2870,7 @@ function rivalTrail(samp,model){
 }
 function rivalBladePts(rm,age){ rm.melee.updateWorldMatrix(true,false);
   const t=new THREE.Vector3(0,rm.tipY,0), b=new THREE.Vector3(0,rm.tipY*0.55,0); rm.melee.localToWorld(t); rm.melee.localToWorld(b); return {t,b,age}; }
-function buildViewmodels(){
+function buildViewmodels(noWarm){   // noWarm：練習の持ち替え（銃は warmGuns で準備済みなので、場面全体の準備はしない）
   vmRoot.clear();
   const gm=makeGunModel(player.weap,true);
   flashMesh.position.copy(gm.tip); gm.group.add(flashMesh); chargeOrbP.position.copy(gm.tip); gm.group.add(chargeOrbP); flashLight.position.copy(gm.tip); gm.group.add(flashLight);
@@ -2867,7 +2891,7 @@ function buildViewmodels(){
   const lk=JSON.stringify(myLook);
   if(!playerModel||lk!==playerLookKey){ disposeModel(playerModel); playerLookKey=lk; playerModel=buildRival(resolveLook(myLook)); playerModel.root.visible=false; pModelState={lx:null,lz:null,walk:0}; }
   armModel(playerModel,player,()=>playerModel);
-  warmShaders(); for(const md of [rivalModel,playerModel]) if(md&&md.ready) md.ready.then(()=>warmShaders());
+  if(!noWarm||!gunWarmed.has(player.weap.name)&&!gunWarmed.has(player.weap.name+'#')){ warmShaders(); for(const md of [rivalModel,playerModel]) if(md&&md.ready) md.ready.then(()=>warmShaders()); }
 }
 // 初めて画面に出る物があると、その場でシェーダーを作る・テクスチャを送るので一瞬止まる
 // （例：肩越しで転がって壁際に寄り一人称の手に切り替わった瞬間、初めて覗いた瞬間）。
@@ -2884,21 +2908,43 @@ function warmShaders(){ clearTimeout(warmQ); warmQ=setTimeout(()=>{
   }catch(e){ console.warn('warmShaders',e); }
   for(const o of hid) o.visible=false;
 },50); }
+// キャラ（VRM）の読み込みと描き方の準備が終わるまで、試合の時間を止めて待つ（読み込み中に動くと、できあがった瞬間に姿勢や位置がおかしくなるため）
+// オンライン対戦は相手と時間を合わせるので待たない。長くかかっても 20 秒であきらめて始める
+let loadWait=0, loadSeq=0;
+function holdForModels(extra){ const ps=[playerModel,rivalModel].filter(m=>m&&m.isVrm&&!m.vrm&&m.ready).map(m=>m.ready.catch(()=>{}));
+  if(extra) ps.push(extra.catch(()=>{}));
+  if(!ps.length||(net&&net.match)) return; const id=++loadSeq; loadWait=id;
+  const done=()=>{ if(loadWait!==id) return; loadWait=0; if(state==='countdown') showBanner(roundBanner()); else hideBanner(); };
+  Promise.all(ps).then(()=>new Promise(r=>setTimeout(r,300))).then(done); setTimeout(done,20000); }
+// 銃を持ち替えた瞬間に止まらないように、全部の銃を前もって作り、描き方（シェーダー）を裏で準備しておく。本物の銃モデルも順番に読み込む
+// （練習の始めの「読み込み中」の間に1丁ずつ。2回目からは準備済みの銃は飛ばす）
+const gunWarmed=new Set(); let gunWarmP=null;
+function warmGuns(){ if(gunWarmP) return gunWarmP; if(!renderer.compileAsync) return Promise.resolve();
+  const frame=ms=>new Promise(r=>setTimeout(r,ms));
+  return gunWarmP=(async()=>{ try{
+    for(const w of GUNS){ const R=GUN_REAL[w.name]; if(R&&!GUN_SCN[R.id]){ await loadRealGun(R.id); await frame(30); } }
+    for(const w of GUNS){ const R=GUN_REAL[w.name], key=w.name+(R&&GUN_SCN[R.id]?'#':''); if(gunWarmed.has(key)) continue; gunWarmed.add(key);
+      const grp=new THREE.Group(), a=makeGunModel(w,true,true).group; a.traverse(c=>{ c.castShadow=false; }); grp.add(a, makeGunModel(w,false,true).group);
+      await renderer.compileAsync(grp,camera,scene); await frame(16); }
+  }catch(e){ console.warn('warmGuns',e); } gunWarmP=null; })(); }
 // マシンガンの弾帯：残りの弾の数だけ見せる（1発撃つと1発消える。拡張マガジンで BELT_N より多いときは割合で）
 // 一人称は弾薬箱を外している間は全部隠し、新しい箱を付けたら満タン
 function updateBelt(list,e,v){ if(!list||!list.length||!e||!e.weap) return;
   if(v&&!(e.reloadT>0)) v.beltFull=false;
-  const box=!v||!v.magParts||!v.magParts.length||v.magParts[0].visible, mag=e.weap.mag||BELT_N;
-  const k=v&&v.beltFull?BELT_N:mag<=BELT_N?e.ammo:Math.ceil(e.ammo*BELT_N/mag);
+  const N=list.n||BELT_N, box=!v||!v.magParts||!v.magParts.length||v.magParts[0].visible, mag=e.weap.mag||N;
+  const k=v&&v.beltFull?N:mag<=N?e.ammo:Math.ceil(e.ammo*N/mag);
   for(const o of list) o.visible=box&&o.userData.belt<=k; }
 // キャラの体に銃と近接武器を持たせる（rival・自分の体で共通）
 function armModel(md,e,cur){
+  // 持っている物が前と同じなら作り直さない（練習で持ち替えたとき、見えないライバルの銃まで作り直して重くなるのを防ぐ）
+  const R=GUN_REAL[e.weap.name], key=e.weap.name+'|'+(e.melee&&e.melee.name)+'|'+(R&&GUN_SCN[R.id]?1:0);
+  if(md.armKey===key) return; md.armKey=key;
   // VRoid のキャラ：右手の骨に銃と近接武器を持たせる（体の読み込みが終わってから）
   if(md.isVrm){ const rg=makeGunModel(e.weap,false), mm=makeMeleeModel(e.melee);
     md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle); md.belt=rg.belt;
     md.melee=mm; { const rb=new THREE.Box3().setFromObject(mm); md.tipY=rb.max.y; }
     const apply=()=>{ md.mountGun(rg,1.25); md.mountMelee(mm); };
-    if(md.vrm) apply(); else { md.onReady=apply; md.onFail=()=>{ if(cur()===md) buildViewmodels(); }; }   // 読み込めなければ今までの持たせ方で
+    if(md.vrm) apply(); else { md.onReady=apply; md.onFail=()=>{ md.armKey=null; if(cur()===md) buildViewmodels(); }; }   // 読み込めなければ今までの持たせ方で
     return; }
   // 銃（実際の銃モデルを拡大して持たせる）
   md.gunG.clear();
@@ -3203,7 +3249,7 @@ function startRound(){
   setRivalLook({sk:'blanca'}); rivalModel.pivot.rotation.set(0,0,0);
   buildViewmodels(); buildSlots();
   $('modtag').style.display=curMod?'block':'none'; if(curMod) $('modtag').textContent=`${curMod.icon} 特別ルール：${curMod.name}`;
-  state='countdown'; stateT=curMod?4:3; showBanner(roundBanner());
+  state='countdown'; stateT=curMod?4:3; showBanner(roundBanner()); holdForModels();
   const hl=round>1||habit.t>25?habitLine():null;
   if(round===1&&!hl) showSub(randOf(lines().start)); else if(hl) showSub(hl);
 }
@@ -3656,7 +3702,7 @@ function endChallenge(){
 function setPracticeGun(i){
   pracGun=(i+GUNS.length)%GUNS.length; const w=GUNS[pracGun];
   player.weap={...w}; player.ammo=w.mag; player.reloadT=0; player.burstLeft=0; player.cool=0; player.slot=0;
-  buildViewmodels(); buildSlots();
+  buildViewmodels(true); buildSlots();
 }
 function cyclePracticeGun(){ setPracticeGun(pracGun+1); const w=player.weap;
   toast(`<span style="color:${w.color}">${w.name}</span>${isOpen(w)?'':' <span style="color:#ffd166">（お試し：未開放）</span>'}`); if(prac.chal) prac.chal=false; resetPracStats(); }
@@ -3673,7 +3719,7 @@ function startPractice(){
   for(const h of holes) scene.remove(h); holes=[];
   yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0; pracGun=gi;
   buildViewmodels(); buildSlots(); hideBanner();
-  state='fight'; paused=false;
+  state='fight'; paused=false; holdForModels(warmGuns());
   const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{});
 }
 function endPractice(){
@@ -4631,6 +4677,7 @@ function tickFighter(e,dt){
 }
 function update(dt){
   if(paused||inMenu()) return;
+  if(loadWait){ showBanner('<div style="font-size:22px">キャラを読み込み中…</div>'); return; }   // 読み込みが終わるまで時間を止める
   stateT-=dt; hurt=Math.max(0,hurt-dt*2.5); shake=Math.max(0,shake-dt); hitmarkT-=dt; kick*=Math.pow(0.0005,dt);
   flashT-=dt; rivalFlashT-=dt; boomT-=dt;
   if(subT>0){subT-=dt; if(subT<=0) $('sub').style.display='none';}
