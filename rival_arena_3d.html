@@ -3697,7 +3697,7 @@ function applySleeve(){ const L=resolveLook(myLook);   // 一人称の袖・手�
   if(sleeveProf){ W.sleeve.color.setRGB(0.78,0.78,0.78); W.sleeve.vertexColors=true; W.sleeve.side=THREE.DoubleSide; } else { W.sleeve.vertexColors=false; W.sleeve.side=THREE.FrontSide; }   // 形どおりの袖は、色も輪切りごとに（袖口の折り返しなど）
   if(typeof vmRoot!=='undefined') fitSleeves(vmRoot);   // 無地は照明で明るく見えるので少し暗めに
   // 明るい肌色は照明で白っぽく飛ぶので、少し濃く・血色よく
-  const hs=new THREE.Color(skinCol).getHSL({},THREE.SRGBColorSpace); W.armSkin.color.setHSL(hs.h,Math.min(1,hs.s*1.1),hs.l*0.85,THREE.SRGBColorSpace).multiplyScalar(0.8);
+  const hs=new THREE.Color(skinCol).getHSL({},THREE.SRGBColorSpace); W.armSkin.color.setHSL(hs.h,Math.min(0.55,hs.s*1.1),Math.min(0.64,hs.l*0.85),THREE.SRGBColorSpace).multiplyScalar(0.8);   // アニメ調のとても白い肌でも、画面で白く見えないよう明るさに上限
   // 手袋：キャラが手袋をしていれば同じ色に（指なし手袋なら手のひらだけ）。していなければ素手
   const gl=vrm&&VRM_GLOVE[L.vrm]&&VRM_GLOVE[L.vrm].right||{};
   const setG=(m,c)=>{ if(c){ m.color.set(c).multiplyScalar(0.8); m.roughness=0.75; } else m.color.copy(W.armSkin.color); };
