@@ -4751,7 +4751,7 @@ function tpsAimPoint(dir){
   const o=camera.position, q=new THREE.Vector3(), t0=o.distanceTo(tpsEye);
   for(let t=t0;t<150;t+=0.2){ q.copy(o).addScaledVector(dir,t);
     if(solidAt(q.x,q.y,q.z)||q.y<0) return q;
-    const tg=practice?null:rival; if(tg&&tg.hp>0&&Math.hypot(q.x-tg.x,q.z-tg.z)<0.4&&q.y>tg.y&&q.y<tg.y+(tg.height||1.88)) return q; }
+    for(const tg of hitList()) if(tg!==player&&tg.hp>0&&Math.hypot(q.x-tg.x,q.z-tg.z)<(tg.r||0.4)&&q.y>tg.y&&q.y<tg.y+(tg.height||1.88)) return q; }   // 練習の的も見る
   return q; }
 const tpsShooting=()=>viewMode==='tps'&&tpsAmt*(1-adsAmt)>0.5;
 const playerFlash=new THREE.Sprite(rivalFlash.material); playerFlash.scale.setScalar(0.6); playerFlash.visible=false; scene.add(playerFlash);
