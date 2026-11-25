@@ -3448,7 +3448,7 @@ const SKINS=[
   {id:'hinata',name:'ひなた',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
     look:{vrm:'hinata',jacket:'#e3d3b8',glove:'#f0d2b8'}},   // 袖＝クリーム色のカーディガン、手＝素手
   {id:'blanca',name:'ブランカ',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
-    look:{vrm:'blanca',jacket:'#3f74d8',glove:'#1c1c1e'}},   // 一人称の袖＝青い服、手＝黒い手袋
+    look:{vrm:'blanca',jacket:'#3f74d8',glove:'#1c1c1e'}},   // 一人称の袖＝青い服（手は素手の肌色）
   {id:'yoshihiko',name:'よしひこ',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
     look:{vrm:'yoshihiko',jacket:'#22242a',glove:'#f0d2b8'}},
   {id:'meliodas',name:'メリオダス',rar:'legend',free:true,desc:'VRoidで作ったオリジナルキャラ。走る・撃つ・リロードの動き付き',
@@ -3470,12 +3470,14 @@ if(!skinOwned(SKIN_BY[myLook.sk])) myLook.sk='custom';
 const SLV_TEX={sm:W.sleeve.map,sn:W.sleeve.normalMap,gm:W.glove.map,gn:W.glove.normalMap};
 function applySleeve(){ const L=resolveLook(myLook);   // 一人称の袖・手袋もスキンの色に
   // 3Dキャラ（VRM）のスキン：袖は迷彩の布ではなく、その服の色の無地。素手のキャラは手も肌色の無地（手袋に見えないように）
-  const vrm=!!L.vrm, skin=vrm&&L.glove&&new THREE.Color(L.glove).getHSL({}).l>0.5;
+  // 銃を持つ手は手袋なし：いつもキャラの肌の色の素手
+  const vrm=!!L.vrm, light=L.glove&&new THREE.Color(L.glove).getHSL({}).l>0.5;
+  const skinCol=vrm?(light?L.glove:'#f0d2b8'):(L.skin||'#e0b48e');
   W.sleeve.map=vrm?null:SLV_TEX.sm; W.sleeve.normalMap=vrm?null:SLV_TEX.sn; W.sleeve.roughness=vrm?0.9:1;
-  W.glove.map=skin?null:SLV_TEX.gm; W.glove.normalMap=skin?null:SLV_TEX.gn; W.glove.roughness=skin?0.6:0.85;
+  W.glove.map=null; W.glove.normalMap=null; W.glove.roughness=0.6;
   W.sleeve.needsUpdate=W.glove.needsUpdate=true;
   W.sleeve.color.set(L.jacket).multiplyScalar(vrm?0.78:2.2);   // 無地は照明で明るく見えるので少し暗めに
-  if(L.glove){ W.glove.color.set(L.glove).multiplyScalar(skin?0.82:1.6); } else W.glove.color.set(0x4a4740); }
+  W.glove.color.set(skinCol).multiplyScalar(0.82); }
 applySleeve();
 function saveLook(){ try{ localStorage.setItem('rivalArenaLook',JSON.stringify(myLook)); }catch(e){} applySleeve(); charaThumb=null; }
 let charaR=null, charaS=null, charaC=null, charaM=null, charaRot=0.6, charaThumb=null, charaBack='title', charaDrag=null, charaPrev='custom';
@@ -3695,11 +3697,11 @@ function shootOnce(e){
     const ads=adsAmt>0.6; let sp=wp.spread*(ads?0.5:1); if(wp.name==='スナイパー'&&!ads) sp+=0.05;
     // 弾の出る所：一人称はカメラ、肩越しは自分の目の位置から画面の真ん中が指す所へ
     const tps=tpsShooting(); let O=camera.position.clone().setY(camera.position.y-0.03);
-    if(tps){ const aim=tpsAimPoint(_v.clone()); O=tpsEye.clone();
-      // 見えている銃の先から撃つ（銃口が壁の向こうにめり込んでいるときは目の位置から）
-      const pm=playerModel; if(pm&&pm.root.visible&&pm.muzzle){ pm.muzzle.updateWorldMatrix(true,false); const mz=pm.muzzle.getWorldPosition(new THREE.Vector3());
-        if(camReach(tpsEye,mz)>=1&&mz.distanceTo(tpsEye)<1.5&&aim.distanceTo(tpsEye)>1.2) O=mz; }
-      _v.copy(aim).sub(O).normalize(); }
+    if(tps){
+      // 画面の真ん中の線の上（キャラの横あたり）から、照準どおりの向きに撃つ。キャラと的の間に物があっても、照準が通っていれば当たる
+      const cp=camera.position, t0=Math.max(0,tpsEye.clone().sub(cp).dot(_v)), on=cp.clone().addScaledVector(_v,t0);
+      if(camReach(tpsEye,on)>=1&&!solidAt(on.x,on.y,on.z)) O=on;
+      else { const aim=tpsAimPoint(_v.clone()); O=tpsEye.clone(); _v.copy(aim).sub(O).normalize(); } }   // 横が壁のときは今までどおり目の位置から
     const dirs=[];
     for(let i=0;i<wp.pellets;i++){
       const d=_v.clone().addScaledVector(_r,rand(-sp,sp)).addScaledVector(_u,rand(-sp,sp)).normalize();
