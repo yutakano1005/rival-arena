@@ -1422,8 +1422,9 @@ const GUN_BUILD={
     X(g,0.056,0.07,0.082,0.108,-0.057,W.od,-0.008,0.004);                          // 弾薬箱
     X(g,0.058,0.008,0.084,0.108,-0.02,W.odPoly,-0.008,0.002);                     // ふた
     X(g,0.004,0.03,0.018,0.108,-0.055,W.dark,-0.0375,0.001);                      // 取っ手の金具
-    for(let i=0;i<7;i++){ const a=i/6*Math.PI, x=-0.03-Math.sin(a)*0.016, v=-0.014+i*0.0058;   // 弾帯（箱の口から差し込み口まで）
-      B(g,0.0042,0.088,0.118,v,W.brass,x,10); B(g,0.0042,0.118,0.131,v,W.copper,x,10,0.0012); X(g,0.01,0.003,0.008,0.1,v-0.0035,W.dark,x,0); }
+    for(let i=0;i<7;i++){ const a=i/6*Math.PI, x=-0.03-Math.sin(a)*0.016, v=-0.014+i*0.0058;   // 弾帯（箱の口から差し込み口まで）。belt＝何発目（0＝箱の側）：残りの弾が減ると箱の側から消える
+      const m0=g.children.length; B(g,0.0042,0.088,0.118,v,W.brass,x,10); B(g,0.0042,0.118,0.131,v,W.copper,x,10,0.0012); X(g,0.01,0.003,0.008,0.1,v-0.0035,W.dark,x,0);
+      for(let j=m0;j<g.children.length;j++) g.children[j].userData.belt=i+1; }
     for(let i=n0;i<g.children.length;i++) g.children[i].userData.magPart=true;
     B(g,0.0105,0.225,0.5,0.012,W.gm,0,16);
     X(g,0.05,0.032,0.09,0.27,-0.002,W.poly,0,0.006);
@@ -1698,7 +1699,8 @@ function makeGunModel(wp,hands,noLoad){
   const trigF=g.children.find(c=>c.userData.trigFinger)||null, trigM=[], magParts=g.children.filter(c=>c.userData.magPart);   // magParts：リロードで外れる部品
   g.traverse(c=>{ if(c.userData.trig){ c.userData.x0=c.position.x; trigM.push(c); } });
   const bow=g.userData.bowStr?{str:g.userData.bowStr,bolt:g.userData.bolt||[],released:false,relT:9}:null;
-  return {group:g,tip:V3(b.tip[0],b.tip[1]),spin:b.spin||null,sight:b.sight,b,offHand,trigF,trigM,bow,magParts};
+  const belt=g.children.filter(c=>c.userData.belt);   // マシンガンの弾帯の弾
+  return {group:g,tip:V3(b.tip[0],b.tip[1]),spin:b.spin||null,sight:b.sight,b,offHand,trigF,trigM,bow,magParts,belt};
 }
 
 // ---------- 近接武器：刃は +y 方向、持ち手が原点 ----------
@@ -2678,7 +2680,7 @@ function rivalCasing(e,wp,d){
 function reloadEvent(name,wp){
   const vis=vm&&vm.gun.visible;
   // 外れる部品（マシンガンの弾薬箱など）：外したら消し、付けたら戻す
-  if(vm&&vm.magParts&&vm.magParts.length){ if(name==='magOut'||name==='boxOut') vm.magParts.forEach(o=>o.visible=false); if(name==='magIn'||name==='boxIn') vm.magParts.forEach(o=>o.visible=true); }
+  if(vm&&vm.magParts&&vm.magParts.length){ if(name==='magOut'||name==='boxOut') vm.magParts.forEach(o=>o.visible=false); if(name==='magIn'||name==='boxIn'){ vm.magParts.forEach(o=>o.visible=true); vm.beltFull=true; } }   // 新しい箱＝弾帯は満タン
   if(name==='spinUp'&&wp.name!=='ミニガン') return;   // 回転音はミニガンだけ
   const dropProp=(u,v,x=0)=>{ if(!vis) return; vm.gun.getWorldQuaternion(_q); camAxes();
     const o=makeProp(reloadKind(wp).prop,wp), pos=gunPoint(u,v,x);
@@ -2842,7 +2844,7 @@ function buildViewmodels(){
   const mm=makeMeleeModel(player.melee), um=makeUtilModel(player.util);
   for(const o of [gm.group,mm,um]) o.traverse(c=>{c.castShadow=false;});
   vmRoot.add(gm.group,mm,um);
-  vm={gun:gm.group,magParts:gm.magParts,spin:gm.spin,melee:mm,util:um,ads:new THREE.Vector3(0,-gm.sight,gm.b.adsZ||-0.26),b:gm.b,offHand:gm.offHand,trigF:gm.trigF,trigM:gm.trigM,pull:0,bow:gm.bow};
+  vm={gun:gm.group,magParts:gm.magParts,spin:gm.spin,melee:mm,util:um,ads:new THREE.Vector3(0,-gm.sight,gm.b.adsZ||-0.26),b:gm.b,offHand:gm.offHand,trigF:gm.trigF,trigM:gm.trigM,pull:0,bow:gm.bow,belt:gm.belt,beltFull:false};
   // リロード用の左手と、手に持つ弾倉など
   const rk=reloadKind(player.weap);
   vm.rhand=makeReloadHand(); vm.rhand.visible=false; gm.group.add(vm.rhand);
@@ -2873,11 +2875,17 @@ function warmShaders(){ clearTimeout(warmQ); warmQ=setTimeout(()=>{
   }catch(e){ console.warn('warmShaders',e); }
   for(const o of hid) o.visible=false;
 },50); }
+// マシンガンの弾帯：残りの弾に合わせて箱の側から消す（7発で全部）。一人称は弾薬箱を外している間は全部隠し、新しい箱を付けたら満タン
+function updateBelt(list,e,v){ if(!list||!list.length||!e||!e.weap) return;
+  if(v&&!(e.reloadT>0)) v.beltFull=false;
+  const box=!v||!v.magParts||!v.magParts.length||v.magParts[0].visible;
+  const k=v&&v.beltFull?7:Math.ceil(7*clamp(e.ammo/(e.weap.mag||30),0,1));
+  for(const o of list) o.visible=box&&o.userData.belt>=8-k; }
 // キャラの体に銃と近接武器を持たせる（rival・自分の体で共通）
 function armModel(md,e,cur){
   // VRoid のキャラ：右手の骨に銃と近接武器を持たせる（体の読み込みが終わってから）
   if(md.isVrm){ const rg=makeGunModel(e.weap,false), mm=makeMeleeModel(e.melee);
-    md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle);
+    md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle); md.belt=rg.belt;
     md.melee=mm; { const rb=new THREE.Box3().setFromObject(mm); md.tipY=rb.max.y; }
     const apply=()=>{ md.mountGun(rg,1.25); md.mountMelee(mm); };
     if(md.vrm) apply(); else { md.onReady=apply; md.onFail=()=>{ if(cur()===md) buildViewmodels(); }; }   // 読み込めなければ今までの持たせ方で
@@ -2885,7 +2893,7 @@ function armModel(md,e,cur){
   // 銃（実際の銃モデルを拡大して持たせる）
   md.gunG.clear();
   const rg=makeGunModel(e.weap,false); rg.group.rotation.y=-Math.PI/2; rg.group.scale.setScalar(1.8); rg.group.position.set(0.4,1.4,0.02);
-  md.gunG.add(rg.group); md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle);
+  md.gunG.add(rg.group); md.muzzle=new THREE.Object3D(); md.muzzle.position.copy(rg.tip); rg.group.add(md.muzzle); md.belt=rg.belt;
   // 近接武器
   if(md.melee) md.hand.remove(md.melee);
   md.melee=makeMeleeModel(e.melee);
@@ -4711,6 +4719,7 @@ function render(){
     const kp=kf(player); chargeOrbP.visible=kp>0&&player.slot===0; chargeOrbP.scale.setScalar(pulse(kp));
     const kr=kf(rival); if(!chargeOrbR.parent) scene.add(chargeOrbR); chargeOrbR.visible=kr>0&&rm.root.visible&&rival.slot===0;
     if(chargeOrbR.visible){ rm.muzzle.getWorldPosition(chargeOrbR.position); chargeOrbR.scale.setScalar(pulse(kr)); } }
+  if(vm) updateBelt(vm.belt,p,vm); if(playerModel) updateBelt(playerModel.belt,p); if(rivalModel) updateBelt(rivalModel.belt,rival);
   $('hud').style.display=inMenu()?'none':'block';
   renderer.render(scene,camera);
 }
