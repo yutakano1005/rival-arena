@@ -1298,6 +1298,46 @@ function m4stock(g,v=0.006,mat=W.poly){
 }
 
 // ---------- 手（グローブ）と袖 ----------
+// 材質：W.glove＝手のひら・手首、W.finger＝指、W.armSkin＝前腕の素肌（キャラの手袋に合わせて別々に色を付ける：applySleeve）
+W.finger=W.glove.clone(); W.armSkin=W.glove.clone();
+// 前腕：素肌の腕＋袖。袖は肩側から伸び、長さをあとから変えられる（キャラの袖の長さに合わせる：fitSleeves）
+function armRods(g,w0,arm){
+  rod(g,w0,arm,0.031,W.armSkin,0.041);   // 袖の下の素肌（半袖・七分袖のとき見える）
+  const d=new THREE.Vector3().subVectors(arm,w0), L=d.length(), sg=new THREE.Group();
+  sg.position.copy(arm); sg.quaternion.setFromUnitVectors(_up,d.normalize()); sg.userData.slvL=L; g.add(sg);
+  mesh(sg,new THREE.CylinderGeometry(0.05,0.038,L,10).translate(0,-L/2,0),W.sleeve);   // 袖（上＝肩側が原点）
+  const cf=mesh(sg,new THREE.CylinderGeometry(0.041,0.041,L*0.07,10).translate(0,L*0.035,0),W.sleeve); cf.position.y=-L;   // 袖口
+}
+// 袖の長さ：cov＝前腕のどこまで袖があるか（1＝手首まで、0＝ひじまで＝半袖）。前腕の長さは手首から約0.26
+let sleeveCov=1, sleeveProf=null;
+const SLV_GEO=new Map();
+// キャラの袖の形（輪切りごとの太さと色）から、回転体の袖を作る。袖口は厚みが見えるよう内側へ少し折り込む
+function sleeveGeo(L,prof){
+  const key=L.toFixed(4)+(prof?'|'+prof.map(q=>q[0].toFixed(2)+q[1].toFixed(3)).join(','):''); if(SLV_GEO.has(key)) return SLV_GEO.get(key);
+  let geo;
+  if(!prof) geo=new THREE.CylinderGeometry(0.05,0.038,L,10).translate(0,-L/2,0);
+  else {
+    // 太さは今の一人称の腕に合わせ、キャラの袖の「太さの変わり方」（広がり・すぼまり・折り返し）だけを写す
+    const FL=0.26, yAt=t=>-L+(1-t)*FL, skinR=y=>0.031+(0.041-0.031)*(y+L)/L, baseR=y=>0.038+(0.05-0.038)*(y+L)/L;
+    const rs=prof.filter(q=>q[0]>=0).map(q=>q[1]).sort((a,b)=>a-b), ref=(rs.length?rs:prof.map(q=>q[1]).sort((a,b)=>a-b))[Math.floor((rs.length||prof.length)/2)];
+    const R=(rn,y)=>baseR(y)*clamp(rn/ref,0.75,1.6);
+    const pts=[], cols=[], add=(r,y,c)=>{ pts.push(new THREE.Vector2(Math.max(r,skinR(y)+0.003),y)); cols.push(c); };
+    const end=prof[prof.length-1], yE=Math.min(-0.001,yAt(end[0])), rE=R(end[1],yE);
+    add(Math.max(skinR(yE)+0.001,rE*0.8),yE+0.008,end[2]); add(rE,yE,end[2]);   // 袖口の内側の縁 → 外側
+    for(let i=prof.length-2;i>=0;i--){ const y=yAt(prof[i][0]); if(y>=-0.002) break; if(y>yE+1e-4) add(R(prof[i][1],y),y,prof[i][2]); }
+    add(Math.max(0.05,R(prof[0][1],0)),0,prof[0][2]);   // 肩側（画面の外）
+    geo=new THREE.LatheGeometry(pts,14);
+    const ca=[], c=new THREE.Color();
+    for(let s=0;s<=14;s++) for(const col of cols){ c.setRGB(col[0],col[1],col[2],THREE.SRGBColorSpace); ca.push(c.r,c.g,c.b); }
+    geo.setAttribute('color',new THREE.Float32BufferAttribute(ca,3));
+  }
+  SLV_GEO.set(key,geo); return geo; }
+function fitSleeves(root){ if(!root) return;
+  root.traverse(o=>{ const L=o.userData.slvL; if(!L||o.children.length<2) return;
+    const body=o.children[0], cuff=o.children[1];
+    if(sleeveProf){ body.geometry=sleeveGeo(L,sleeveProf); body.scale.y=1; cuff.visible=false; return; }   // キャラの形どおり
+    body.geometry=sleeveGeo(L,null); cuff.visible=true;
+    const k=clamp((L-(1-sleeveCov)*0.26)/L,0.05,1); body.scale.y=k; cuff.position.y=-L*k; }); }
 function gripHand(g,gu,gv,a,side,o){
   const hd=o.hd, hw=o.hw, s0=o.s0, fo=o.fo||0;
   const dn=[-Math.sin(a),-Math.cos(a)], fw=[Math.cos(a),-Math.sin(a)];
@@ -1306,28 +1346,27 @@ function gripHand(g,gu,gv,a,side,o){
   const nf=o.trig?3:4;
   for(let j=0;j<nf;j++){ const s=s0+0.004+j*0.0165, r=j===nf-1?0.0072:0.0085;
     const p1=at(s,hd+0.006+fo,-hw*0.2);
-    cap(g,at(s,hd*0.6,hw+0.006),p1,r,W.glove); cap(g,p1,at(s+0.002,hd*0.1+fo,-hw-0.006),r*0.92,W.glove); }
-  cap(g,at(s0-0.008,-hd+0.006,-hw-0.006),at(s0-0.022,hd+0.012,-hw-0.008),0.0088,W.glove);
+    cap(g,at(s,hd*0.6,hw+0.006),p1,r,W.finger); cap(g,p1,at(s+0.002,hd*0.1+fo,-hw-0.006),r*0.92,W.finger); }
+  cap(g,at(s0-0.008,-hd+0.006,-hw-0.006),at(s0-0.022,hd+0.012,-hw-0.008),0.0088,W.finger);
   if(o.trig){ const [tu,tv]=o.trig, k=at(s0-0.012,hd*0.5,hw+0.008), t=V3(tu+0.003,tv,0.006*side);
     // 人差し指は付け根（k）を軸に曲がる → 撃つときに引き金を引く動きになる
     const fg=new THREE.Group(); fg.position.copy(k); fg.userData.trigFinger=true; g.add(fg);
     const rel=p=>p.clone().sub(k);
-    cap(fg,V3(0,0,0),rel(t),0.0082,W.glove); cap(fg,rel(t),rel(V3(tu-0.002,tv-0.004,-0.001*side)),0.0078,W.glove); }
+    cap(fg,V3(0,0,0),rel(t),0.0082,W.finger); cap(fg,rel(t),rel(V3(tu-0.002,tv-0.004,-0.001*side)),0.0078,W.finger); }
   const w0=at(s0+0.062,-hd*0.4,hw+0.004);
   cap(g,at(s0+0.035,-hd*0.2,hw+0.008),w0,0.025,W.glove);
   const arm=o.arm||V3(gu-0.3,gv-0.26,0.13*side);
-  rod(g,w0,arm,0.038,W.sleeve,0.05);
-  rod(g,w0,w0.clone().lerp(arm,0.07),0.041,W.sleeve,0.041);
+  armRods(g,w0,arm);
 }
 function foreHand(g,u,v,r){
   X(g,0.046,0.02,0.064,u,v-r-0.008,W.glove,-0.002,0.009);
   for(let i=0;i<4;i++){ const uu=u+0.024-i*0.016, rr=i===3?0.0072:0.0084;
     const p0=V3(uu,v-r-0.006,r*0.4), p1=V3(uu,v-r*0.25,r+0.006), p2=V3(uu-0.002,v+r*0.65,r*0.55);
-    cap(g,p0,p1,rr,W.glove); cap(g,p1,p2,rr*0.93,W.glove); }
-  cap(g,V3(u-0.024,v-r*0.8,-r-0.006),V3(u+0.03,v-r*0.1,-r-0.008),0.0088,W.glove);
+    cap(g,p0,p1,rr,W.finger); cap(g,p1,p2,rr*0.93,W.finger); }
+  cap(g,V3(u-0.024,v-r*0.8,-r-0.006),V3(u+0.03,v-r*0.1,-r-0.008),0.0088,W.finger);
   const w0=V3(u-0.04,v-r-0.014,-0.008), arm=V3(u-0.42,v-0.28,-0.2);
   cap(g,V3(u-0.018,v-r-0.01,-0.002),w0,0.026,W.glove);
-  rod(g,w0,arm,0.038,W.sleeve,0.05); rod(g,w0,w0.clone().lerp(arm,0.07),0.041,W.sleeve,0.041);
+  armRods(g,w0,arm);
 }
 
 // ---------- 銃ごとの造形 ----------
@@ -2165,7 +2204,98 @@ function vrmBuffer(id){
   return VRM_BUF[id]=u.buffer; }
 function loadVrm(id){ return new Promise((res,rej)=>{ const gl=new GLTFLoader(); gl.register(p=>new VRMLoaderPlugin(p));
   gl.parse(vrmBuffer(id).slice(0),'',g=>{ const vrm=g.userData.vrm; if(!vrm){ rej('not vrm'); return; }
-    VRMUtils.removeUnnecessaryVertices(g.scene); VRMUtils.removeUnnecessaryJoints(g.scene); res(vrm); },rej); }); }
+    VRMUtils.removeUnnecessaryVertices(g.scene); VRMUtils.removeUnnecessaryJoints(g.scene);
+    if(!VRM_SLEEVE[id]){ try{ const c=vrmSleeveColor(vrm); if(c) VRM_SLEEVE[id]=c; }catch(e){}
+      try{ const s=vrmSleeveLen(vrm); VRM_SLEEVE_LEN[id]=s.cov; VRM_SLEEVE_PROF[id]=s.prof; if(s.skin) VRM_SKIN[id]=s.skin; VRM_GLOVE[id]=s.gloves; }catch(e){} applySleeve(); }
+    res(vrm); },rej); }); }
+// 一人称の袖の色：キャラの前腕（ひじ〜手首）にかかっている服の色を、テクスチャから拾う（肌・顔・髪は除く）
+const VRM_SLEEVE={}, VRM_SLEEVE_LEN={}, VRM_SLEEVE_PROF={}, VRM_SKIN={}, VRM_GLOVE={};
+// 袖の長さ：服（肌・顔・髪以外）の頂点のうち、右の前腕のまわりにあるものが、ひじ→手首のどこまで来ているか（0〜1）
+function vrmSleeveLen(vrm){
+  const h=vrm.humanoid, el=h.getRawBoneNode('rightLowerArm'), wr=h.getRawBoneNode('rightHand'); if(!el||!wr) return 1;
+  vrm.scene.updateMatrixWorld(true);
+  const E=el.getWorldPosition(new THREE.Vector3()), Wp=wr.getWorldPosition(new THREE.Vector3()), ax=Wp.clone().sub(E), len=ax.length(); ax.normalize();
+  const p=new THREE.Vector3(), ts=[], vs=[];
+  const imgs=new Map(), cv=document.createElement('canvas'), g2=cv.getContext('2d',{willReadFrequently:true});
+  const pix=tex=>{ if(imgs.has(tex)) return imgs.get(tex); const im=tex&&tex.image; let d=null;
+    if(im&&im.width){ cv.width=Math.min(512,im.width); cv.height=Math.min(512,im.height); g2.clearRect(0,0,cv.width,cv.height); g2.drawImage(im,0,0,cv.width,cv.height); d={w:cv.width,h:cv.height,a:g2.getImageData(0,0,cv.width,cv.height).data}; }
+    imgs.set(tex,d); return d; };
+  // 体の頂点を材質ごとに見ていく（each(肌の材質か, 位置, 色)）
+  const each=fn=>vrm.scene.traverse(o=>{ if(!o.isSkinnedMesh) return; const ge=o.geometry, pos=ge.attributes.position, uv=ge.attributes.uv;
+    const mats=Array.isArray(o.material)?o.material:[o.material], groups=Array.isArray(o.material)?ge.groups:[{start:0,count:ge.index?ge.index.count:pos.count,materialIndex:0}];
+    for(const gr of groups){ const mt=mats[gr.materialIndex], nm=mt&&mt.name||''; if(!mt||/eye|hair|brow|lash|mouth|tooth|outline/i.test(nm)) continue;
+      const skin=/skin/i.test(nm); if(!skin&&/face/i.test(nm)) continue;
+      const seen=new Set(), P=mt.map?pix(mt.map):null, base=(mt.color||new THREE.Color(1,1,1)).clone().convertLinearToSRGB();
+      for(let j=gr.start;j<gr.start+gr.count;j++){ const i=ge.index?ge.index.getX(j):j; if(seen.has(i)) continue; seen.add(i);
+        p.fromBufferAttribute(pos,i).applyMatrix4(o.matrixWorld); let c=[base.r,base.g,base.b];
+        if(P&&uv){ const x=Math.min(P.w-1,Math.max(0,(uv.getX(i)%1+1)%1*P.w|0)), y=Math.min(P.h-1,Math.max(0,(uv.getY(i)%1+1)%1*P.h|0)), q=(y*P.w+x)*4;
+          if(P.a[q+3]<128) continue; c=[P.a[q]/255*base.r,P.a[q+1]/255*base.g,P.a[q+2]/255*base.b]; }
+        fn(skin,p,c,nm); } } });
+  // 肌の色の基準＝顔まわりの肌（肌の画像に服が描かれているキャラ：肌の材質でも、色が肌と違うところは服として扱う）
+  const hd=h.getRawBoneNode('head'), H=hd?hd.getWorldPosition(new THREE.Vector3()):null, fc=[];
+  each((skin,q,c,nm)=>{ if(skin&&/face/i.test(nm)) fc.push(c); });   // 顔の肌の材質
+  if(H&&fc.length<10) each((skin,q,c)=>{ if(skin&&q.y>H.y+0.1*len&&q.distanceTo(H)<0.8*len) fc.push(c); });   // 無ければ頭のまわりの肌
+  const ref=fc.length>=10?[0,1,2].map(k=>fc.map(c=>c[k]).sort((a,b)=>a-b)[fc.length>>1]):null;
+  each((skin,q,c)=>{
+    if(skin&&(!ref||Math.hypot(c[0]-ref[0],c[1]-ref[1],c[2]-ref[2])<0.2)) return;   // 素肌
+    q.sub(E); const t=q.dot(ax);
+    if(t<-0.3*len||t>1.3*len) return; q.addScaledVector(ax,-t); if(q.length()>0.42*len) return;   // 腕のまわり（大きいキャラもいるので腕の長さに対する割合）
+    ts.push(t/len); vs.push([t/len,q.x,q.y,q.z,c]); });
+  const hex=c=>'#'+new THREE.Color(c[0],c[1],c[2]).getHexString(THREE.LinearSRGBColorSpace);
+  const skinHex=ref?hex(ref):null;
+  // 手袋：左右の手それぞれ、手のひら（手首〜指の付け根）と指の、服（手袋）の割合と色
+  const gloves={};
+  for(const sd of ['right','left']){ const hn=h.getRawBoneNode(sd+'Hand'), mp=h.getRawBoneNode(sd+'MiddleProximal')||h.getRawBoneNode(sd+'IndexProximal'); if(!hn||!mp) continue;
+    const H0=hn.getWorldPosition(new THREE.Vector3()), hx=mp.getWorldPosition(new THREE.Vector3()).sub(H0), hl=hx.length(); hx.normalize();
+    const R={palm:{n:0,g:[]},fing:{n:0,g:[]}};
+    each((skin,q,c)=>{ q.sub(H0); const s=q.dot(hx)/hl; if(s<0.05||s>3) return; if(q.addScaledVector(hx,-s*hl).length()>1.3*hl) return;
+      const r=s<1.05?R.palm:R.fing; r.n++; if(!skin||(ref&&Math.hypot(c[0]-ref[0],c[1]-ref[1],c[2]-ref[2])>=0.2)) r.g.push(c); });
+    const pick=r=>r.n>=10&&r.g.length>r.n*0.5?hex([0,1,2].map(k=>r.g.map(c=>c[k]).sort((a,b)=>a-b)[r.g.length>>1])):null;
+    gloves[sd]={palm:pick(R.palm),fing:pick(R.fing)}; }
+  if(ts.length<10) return {cov:0,prof:null,skin:skinHex,gloves};
+  // 袖の終わり：ひじ側からつながっている服のところまで（途中で途切れたら終わり。手首の手袋などは袖に入れない）
+  let cov=-0.3, gap=0;
+  for(let t0=-0.3;t0<=1.0001;t0+=0.05){ const n=vs.filter(v=>v[0]>=t0-0.025&&v[0]<t0+0.025).length;
+    if(n>=4){ cov=t0; gap=0; } else if(++gap>1) break; }
+  for(let i=vs.length-1;i>=0;i--) if(vs[i][0]>cov+0.03) vs.splice(i,1);
+  cov=clamp(cov+0.025,0,1);
+  // 袖の形：ひじの少し上〜袖口まで、輪切りごとの太さ（中心からの距離）と色。太さは前腕の長さに対する割合
+  const prof=[], S=0.05;
+  for(let t0=-0.3;t0<cov+S*0.5;t0+=S){ const b=vs.filter(v=>v[0]>=t0-S*0.6&&v[0]<t0+S*0.6); if(b.length<4) continue;
+    const cx=b.reduce((s,v)=>s+v[1],0)/b.length, cy=b.reduce((s,v)=>s+v[2],0)/b.length, cz=b.reduce((s,v)=>s+v[3],0)/b.length;
+    const ds=b.map(v=>Math.hypot(v[1]-cx,v[2]-cy,v[3]-cz)).sort((x,y)=>x-y);
+    const col=[0,1,2].map(k=>b.reduce((s,v)=>s+v[4][k],0)/b.length);
+    prof.push([Math.min(t0,cov),ds[Math.floor(ds.length*0.85)]/len,col]); }
+  for(let i=1;i<prof.length-1;i++) prof[i][3]=(prof[i-1][1]+prof[i][1]*2+prof[i+1][1])/4;   // なめらかに
+  for(const q of prof) if(q[3]!=null){ q[1]=q[3]; q.length=3; }
+  return {cov,prof:prof.length>=2?prof:null,skin:skinHex,gloves}; }
+function vrmSleeveColor(vrm,up){
+  const h=vrm.humanoid, arms=(up?['rightUpperArm','leftUpperArm']:['rightLowerArm','leftLowerArm']).map(b=>h.getRawBoneNode(b)).filter(Boolean); if(!arms.length) return null;
+  const imgs=new Map(), tally=new Map(), cv=document.createElement('canvas'), g2=cv.getContext('2d',{willReadFrequently:true});
+  const pix=tex=>{ if(imgs.has(tex)) return imgs.get(tex); const im=tex&&tex.image; let d=null;
+    if(im&&im.width){ cv.width=Math.min(512,im.width); cv.height=Math.min(512,im.height); g2.clearRect(0,0,cv.width,cv.height); g2.drawImage(im,0,0,cv.width,cv.height); d={w:cv.width,h:cv.height,a:g2.getImageData(0,0,cv.width,cv.height).data}; }
+    imgs.set(tex,d); return d; };
+  vrm.scene.traverse(o=>{ if(!o.isSkinnedMesh) return;
+    const bi=arms.map(b=>o.skeleton.bones.indexOf(b)).filter(i=>i>=0); if(!bi.length) return;
+    const ge=o.geometry, si=ge.attributes.skinIndex, sw=ge.attributes.skinWeight, uv=ge.attributes.uv; if(!si||!sw) return;
+    // 材質ごとの頂点（いくつかの材質がまとめられたメッシュは、グループごとに分ける）
+    const parts=[];
+    if(Array.isArray(o.material)){ const ix=ge.index;
+      for(const gr of ge.groups){ const mt=o.material[gr.materialIndex]; if(!mt) continue; const vs=new Set();
+        for(let j=gr.start;j<gr.start+gr.count;j++) vs.add(ix?ix.getX(j):j); parts.push([mt,vs]); } }
+    else parts.push([o.material,null]);
+    for(const [mt,vs] of parts){
+    if(/skin|face|eye|hair|brow|lash|mouth|tooth|outline/i.test(mt.name||'')) continue;
+    const P=mt.map?pix(mt.map):null, base=(mt.color||new THREE.Color(1,1,1)).clone().convertLinearToSRGB();
+    let t=tally.get(mt); if(!t) tally.set(mt,t={n:0,r:0,g:0,b:0});
+    for(const i of vs||Array.from({length:si.count},(_,k)=>k)){ let w=0; for(let k=0;k<4;k++) if(bi.includes(si.getComponent(i,k))) w+=sw.getComponent(i,k); if(w<0.5) continue;
+      let r=1,gg=1,b=1;
+      if(P&&uv){ const x=Math.min(P.w-1,Math.max(0,(uv.getX(i)%1+1)%1*P.w|0)), y=Math.min(P.h-1,Math.max(0,(uv.getY(i)%1+1)%1*P.h|0)), q=(y*P.w+x)*4;
+        if(P.a[q+3]<128) continue; r=P.a[q]/255; gg=P.a[q+1]/255; b=P.a[q+2]/255; }
+      t.n++; t.r+=r*base.r; t.g+=gg*base.g; t.b+=b*base.b; } } });
+  let best=null; for(const t of tally.values()) if(t.n&&(!best||t.n>best.n)) best=t;
+  if(!best||best.n<8) return up?null:vrmSleeveColor(vrm,true);   // 前腕が素肌（半袖）なら二の腕の服の色
+  return '#'+new THREE.Color(best.r/best.n,best.g/best.n,best.b/best.n).getHexString(THREE.LinearSRGBColorSpace); }
 // 上半身・下半身の骨（走りながら撃つ・リロードするため、上と下で別の動きを重ねる）
 const LOWER_BONES=new Set(['hips','leftUpperLeg','leftLowerLeg','leftFoot','leftToes','rightUpperLeg','rightLowerLeg','rightFoot','rightToes']);
 // 左右反転した動きを作る（左右の骨を入れ替え、横方向をひっくり返す）
@@ -2470,11 +2600,11 @@ function makeReloadHand(){
   mesh(h,RB(0.05,0.022,0.075,0.009),W.glove).position.set(0,-0.03,0.005);
   for(let i=0;i<4;i++){ const z=-0.026+i*0.017, r=i===3?0.0075:0.0088;
     const p0=vv(0.022,-0.03,z), p1=vv(0.031,-0.006,z), p2=vv(0.021,0.013,z);
-    cap(h,p0,p1,r,W.glove); cap(h,p1,p2,r*0.92,W.glove); }
-  cap(h,vv(-0.02,-0.03,0.0),vv(-0.031,-0.006,-0.012),0.0098,W.glove); cap(h,vv(-0.031,-0.006,-0.012),vv(-0.024,0.012,-0.02),0.009,W.glove);
+    cap(h,p0,p1,r,W.finger); cap(h,p1,p2,r*0.92,W.finger); }
+  cap(h,vv(-0.02,-0.03,0.0),vv(-0.031,-0.006,-0.012),0.0098,W.finger); cap(h,vv(-0.031,-0.006,-0.012),vv(-0.024,0.012,-0.02),0.009,W.finger);
   const w0=vv(0,-0.045,0.05), arm=vv(-0.08,-0.32,0.3);
   cap(h,vv(0,-0.035,0.02),w0,0.027,W.glove);
-  rod(h,w0,arm,0.038,W.sleeve,0.05); rod(h,w0,w0.clone().lerp(arm,0.07),0.041,W.sleeve,0.041);
+  armRods(h,w0,arm);
   h.traverse(c=>c.castShadow=false); return h;
 }
 // 手に持つ物（原点＝握る位置、+y が差し込む方向）
@@ -2906,6 +3036,7 @@ function buildViewmodels(noWarm){   // noWarm：練習の持ち替え（銃は w
   // 刃先の位置（軌跡を描くため）
   vmRoot.remove(mm); mm.position.set(0,0,0); mm.rotation.set(0,0,0); mm.updateMatrixWorld(true);
   const bb=new THREE.Box3().setFromObject(mm); vm.tipY=bb.max.y; vm.baseY=bb.max.y*0.62; vmRoot.add(mm);
+  fitSleeves(vmRoot);   // 袖の長さをキャラに合わせる
   armModel(rivalModel,rival,()=>rivalModel);
   // 自分の体（肩越し視点・決着のカメラで見える）。見た目が変わったときだけ作り直す
   const lk=JSON.stringify(myLook);
@@ -3557,12 +3688,20 @@ function applySleeve(){ const L=resolveLook(myLook);   // 一人称の袖・手�
   // 3Dキャラ（VRM）のスキン：袖は迷彩の布ではなく、その服の色の無地。素手のキャラは手も肌色の無地（手袋に見えないように）
   // 銃を持つ手は手袋なし：いつもキャラの肌の色の素手
   const vrm=!!L.vrm, light=L.glove&&new THREE.Color(L.glove).getHSL({}).l>0.5;
-  const skinCol=vrm?(light?L.glove:'#f0d2b8'):(L.skin||'#e0b48e');
+  const skinCol=vrm?(VRM_SKIN[L.vrm]||(light?L.glove:'#f0d2b8')):(L.skin||'#e0b48e');   // 3Dキャラは顔の肌の色（読み込み後）
   W.sleeve.map=vrm?null:SLV_TEX.sm; W.sleeve.normalMap=vrm?null:SLV_TEX.sn; W.sleeve.roughness=vrm?0.9:1;
-  W.glove.map=null; W.glove.normalMap=null; W.glove.roughness=0.6;
-  W.sleeve.needsUpdate=W.glove.needsUpdate=true;
-  W.sleeve.color.set(L.jacket).multiplyScalar(vrm?0.78:2.2);   // 無地は照明で明るく見えるので少し暗めに
-  W.glove.color.set(skinCol).multiplyScalar(0.82); }
+  for(const m of [W.glove,W.finger,W.armSkin]){ m.map=null; m.normalMap=null; m.roughness=0.6; m.needsUpdate=true; }
+  W.sleeve.needsUpdate=true;
+  W.sleeve.color.set(vrm&&VRM_SLEEVE[L.vrm]||L.jacket).multiplyScalar(vrm?0.78:2.2);
+  sleeveCov=vrm&&VRM_SLEEVE_LEN[L.vrm]!=null?VRM_SLEEVE_LEN[L.vrm]:1; sleeveProf=vrm&&VRM_SLEEVE_PROF[L.vrm]||null;
+  if(sleeveProf){ W.sleeve.color.setRGB(0.78,0.78,0.78); W.sleeve.vertexColors=true; W.sleeve.side=THREE.DoubleSide; } else { W.sleeve.vertexColors=false; W.sleeve.side=THREE.FrontSide; }   // 形どおりの袖は、色も輪切りごとに（袖口の折り返しなど）
+  if(typeof vmRoot!=='undefined') fitSleeves(vmRoot);   // 無地は照明で明るく見えるので少し暗めに
+  // 明るい肌色は照明で白っぽく飛ぶので、少し濃く・血色よく
+  const hs=new THREE.Color(skinCol).getHSL({},THREE.SRGBColorSpace); W.armSkin.color.setHSL(hs.h,Math.min(1,hs.s*1.1),hs.l*0.85,THREE.SRGBColorSpace).multiplyScalar(0.8);
+  // 手袋：キャラが手袋をしていれば同じ色に（指なし手袋なら手のひらだけ）。していなければ素手
+  const gl=vrm&&VRM_GLOVE[L.vrm]&&VRM_GLOVE[L.vrm].right||{};
+  const setG=(m,c)=>{ if(c){ m.color.set(c).multiplyScalar(0.8); m.roughness=0.75; } else m.color.copy(W.armSkin.color); };
+  setG(W.glove,gl.palm); setG(W.finger,gl.fing); }
 applySleeve();
 function saveLook(){ try{ localStorage.setItem('rivalArenaLook',JSON.stringify(myLook)); }catch(e){} applySleeve(); charaThumb=null; }
 let charaR=null, charaS=null, charaC=null, charaM=null, charaRot=0.6, charaThumb=null, charaBack='title', charaDrag=null, charaPrev='custom';
