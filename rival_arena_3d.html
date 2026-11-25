@@ -4066,11 +4066,13 @@ const DODGE={roll:{dur:0.55,dist:3.2,iframe:0.3,cd:0.6},hop:{dur:0.5,dist:2.8,if
 // 回避中の速さ：動き（Mixamo）に合わせて、少し速めに出て真ん中で一番速く、最後はゆっくり（合計で dist 進む）。近接の踏み込みは今までどおり 24
 function dodgeSpeed(e){ if(!(e.dodgeT>0)) return 24; const u=1-clamp(e.dodgeT/e.dodgeDur,0,1); return e.dodgeDist/e.dodgeDur*Math.sin(Math.PI*(0.1+0.9*u))/0.69; }
 function tryStep(e,dx,dz,kind='roll'){
-  if(e.hp<=0||!e.onGround||e.dashT>0||e.healT>0||(e.stepCD||0)>0||e.dodgeT>0) return false;
+  // 自分の回避は、今の回避の終わりぎわ（残り3割）から次の回避へつなげられる
+  const late=e===player&&e.dodgeT>0&&e.dodgeT<=e.dodgeDur*0.3+1e-3;
+  if(e.hp<=0||e.healT>0||(e.stepCD||0)>0||(!late&&(!e.onGround||e.dashT>0||e.dodgeT>0))) return false;
   const l=Math.hypot(dx,dz); if(l<0.01) return false;
   const D=DODGE[kind]||DODGE.roll;
   e.ddx=dx/l; e.ddz=dz/l; e.dashT=D.dur; e.dodgeT=D.dur; e.dodgeDur=D.dur; e.dodgeKind=kind; e.dodgeDist=D.dist;
-  e.stepCD=D.cd+D.dur; e.slideT=0; e.iframeT=D.iframe;
+  e.stepCD=e===player?D.dur*0.7:D.cd+D.dur; e.slideT=0; e.iframeT=D.iframe;
   if(D.vy){ e.vy=D.vy; e.onGround=false; e.airT=1; }   // 後ろ跳び：少し浮く
   if(e===player) netSend({t:'dg',k:kind,x:+e.ddx.toFixed(3),z:+e.ddz.toFixed(3)});
   sfxDash(e);   // 「シュッ」
@@ -4093,8 +4095,11 @@ function checkDoubleTap(c){
   const D={fwd:[1,0],back:[-1,0],right:[0,1],left:[0,-1]};
   for(const a in D) if(isAct(a,c)){ const now=performance.now();
     tapN[a]=lastTap[a]&&now-lastTap[a]<260?(tapN[a]||1)+1:1; lastTap[a]=now;
-    if(tapN[a]===2){ const [f,s]=D[a]; tryStep(player,-Math.sin(yaw)*f+Math.cos(yaw)*s,-Math.cos(yaw)*f-Math.sin(yaw)*s,a==='back'?'hop':'roll'); }
-    else if(tapN[a]>=3){ tapRun=a; tapN[a]=0; lastTap[a]=0; } } }
+    // 偶数回目（2・4・6…）でステップ、奇数回目（3・5…）で走り出す。早めに押したステップは少しのあいだ覚えておき、出せるようになったらすぐ出す
+    if(tapN[a]%2===0){ const [f,s]=D[a], dx=-Math.sin(yaw)*f+Math.cos(yaw)*s, dz=-Math.cos(yaw)*f-Math.sin(yaw)*s, k=a==='back'?'hop':'roll';
+      if(tapN[a]>=4) tapRun=null;
+      if(!tryStep(player,dx,dz,k)) player.dodgeQ={dx,dz,k,t:0.35}; }
+    else if(tapN[a]>=3) tapRun=a; } }
 function sfxDash(e){ if(!actx) return; const D=e===player?undefined:spatial(e.x,e.z,OUT), k=distVol(e); if(k<0.02) return;   // ステップの「シュッ」
   noise('bandpass',900,2600,0.11,0.22*k,0.9,0,D); noise('lowpass',500,120,0.07,0.18*k,1,0,D); noise('highpass',3000,1500,0.1,0.05*k,0.7,0.02,D); }
 function tryJump(e){
@@ -4324,6 +4329,7 @@ function updatePlayer(dt){
   const sp=(ducking?2.8:(held('run')||tapRun)&&!rightDown?7.5:5.5)*(adsAmt>0.5?0.6:1)*slotMul(p)*(p.healT>0?0.5:1)*p.spdMul;
   const ox=p.x, oz=p.z;
   p.slideCD-=dt;
+  if(p.dodgeQ){ const q=p.dodgeQ; q.t-=dt; if(tryStep(p,q.dx,q.dz,q.k)||q.t<=0) p.dodgeQ=null; }   // 早押しした次の回避
   if(p.dashT>0){ const v=dodgeSpeed(p); p.dashT-=dt; moveEntity(p,p.ddx*v*dt,p.ddz*v*dt); }
   else if(p.slideT>0){
     p.slideT-=dt;
