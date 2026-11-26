@@ -241,7 +241,8 @@
   .spin{width:46px;height:46px;margin:20px auto;border:5px solid #7bdff244;border-top-color:#7bdff2;border-radius:50%;animation:spn 1s linear infinite}
   @keyframes spn{to{transform:rotate(360deg)}}
   #pracBtn{display:block;width:100%;margin:8px 0 0;font:inherit;font-size:16px;font-weight:900;padding:8px;border-radius:8px;cursor:pointer;color:#7bdff2;background:#10202a;border:2px solid #7bdff2}
-  #pracBtn:hover{filter:brightness(1.2)}
+  #pracBtn:hover,#dodgeBtn:hover{filter:brightness(1.2)}
+  #dodgeBtn{display:block;width:100%;margin:6px 0 0;font:inherit;font-size:16px;font-weight:900;padding:8px;border-radius:8px;cursor:pointer;color:#a0f0ff;background:#0e1c2c;border:2px solid #4cc9f0}
   .kbgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;margin:14px auto 4px;max-width:640px;text-align:left}
   .kbrow{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:5px 8px 5px 10px;border-radius:8px;background:#151b27}
   .kbrow span{font-size:15px}
@@ -249,6 +250,10 @@
   .dodgeTxt{position:fixed;left:50%;top:58%;transform:translate(-50%,0);z-index:30;pointer-events:none;font-size:26px;font-weight:900;letter-spacing:3px;color:#7bdff2;
     text-shadow:0 0 8px #4cc9f0,0 2px 3px #000;animation:dodgeUp .7s ease-out forwards}
   .dodgeTxt.foe{top:40%;font-size:22px;color:#ffb347;text-shadow:0 0 8px #ff7a1a,0 2px 3px #000}
+  .dodgeTxt.zone{font-size:30px;color:#e6fbff;text-shadow:0 0 12px #4cc9f0,0 0 24px #4cc9f0,0 2px 3px #000;animation-duration:.9s}
+  .dodgeTxt.counter{top:44%;font-size:28px;color:#ffe066;text-shadow:0 0 10px #ff9f1a,0 2px 3px #000}
+  #zoneFx{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .15s;
+    background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(40,140,200,.28) 75%,rgba(10,40,90,.6) 100%);box-shadow:inset 0 0 60px rgba(120,220,255,.5)}
   @keyframes dodgeUp{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.1)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
   .kbrow b{min-width:66px;text-align:center;padding:3px 8px;border-radius:6px;background:#2a3346;color:#ffd166;font-size:14px;cursor:pointer;border:2px solid transparent}
   .kbrow b:hover{border-color:#5a6a90}
@@ -297,6 +302,7 @@
   <div id="weapon"><div id="wname"></div><div id="ammo"></div></div>
   <svg id="cross" width="32" height="32" viewBox="0 0 32 32"><g stroke="#fff" stroke-width="2" opacity=".9"><line x1="16" y1="3" x2="16" y2="11"/><line x1="16" y1="21" x2="16" y2="29"/><line x1="3" y1="16" x2="11" y2="16"/><line x1="21" y1="16" x2="29" y2="16"/></g><circle cx="16" cy="16" r="1.5" fill="#fff"/></svg>
   <div id="hitmark">✕</div>
+  <div id="zoneFx"></div>
   <div id="scope"></div>
   <div id="vignette"></div>
   <div id="heal"></div>
@@ -3129,6 +3135,21 @@ let bullets=[], throws=[], player, rival, yaw=-Math.PI/2, pitch=0;
 let vmRec=0, vmRecV=0, vmRecSide=0;
 let kick=0, shake=0, hurt=0, hitmarkT=0, adsAmt=0, bobT=0, flashT=0, rivalFlashT=0, deathCam=0;
 let dmgNums=[], roundStreak=0, bonusKeys=0, slowT=0, killPunch=0;
+// ゾーン：ぎりぎりでかわす（回避の無敵中に攻撃が当たる）と、少しのあいだ相手や弾がゆっくりになり、自分の攻撃がカウンター（ダメージ増し）になる
+// オンラインは相手の時間を変えられないので、代わりにゾーン中に撃った自分の弾が ZONE_BULLET 倍の速さで飛ぶ
+const ZONE_T=2.2, ZONE_SLOW=0.3, ZONE_CD=4, COUNTER_MUL=1.5, ZONE_BULLET=2.5;
+let zoneT=0, zoneCD=0, lastCounter=0;
+// ゾーン中の時間の進み方（最後の0.35秒でふつうに戻す）
+function zoneScale(){ if(!(zoneT>0)||isOnline()) return 1; return ZONE_SLOW+(1-ZONE_SLOW)*clamp(1-zoneT/0.35,0,1); }
+function startZone(){
+  if(zoneCD>0||state!=='fight') return false;
+  zoneT=ZONE_T; zoneCD=ZONE_CD;
+  const el=document.createElement('div'); el.className='dodgeTxt zone'; el.textContent='ジャスト回避！'; document.body.appendChild(el); setTimeout(()=>el.remove(),900);
+  if(actx){ beep(900,0.45,0.1,'sine',0,180); noise('lowpass',1200,150,0.6,0.22,1); beep(2400,0.15,0.04,'sine',0.05,3600); }
+  return true; }
+function counterFx(){ const now=performance.now(); if(now-lastCounter<250) return; lastCounter=now;
+  const el=document.createElement('div'); el.className='dodgeTxt counter'; el.textContent='カウンター！'; document.body.appendChild(el); setTimeout(()=>el.remove(),700);
+  if(actx){ beep(500,0.12,0.12,'square',0,1400); noise('bandpass',2500,1200,0.12,0.15,0.8); } }
 // 視点：'fps' 一人称 / 'tps' 肩越し（右クリックで覗く間は一人称）。決着のときは自分のまわりを回るカメラ
 let viewMode='fps'; try{ if(localStorage.getItem('rivalArenaView')==='tps') viewMode='tps'; }catch(e){}
 let tpsAmt=viewMode==='tps'?1:0, endCam=0, endCamA=0, playerModel=null, playerLookKey='', pModelState={lx:null,lz:null,walk:0};
@@ -3496,13 +3517,13 @@ function onNet(m){
     case 'f': if(isOnline()&&rival&&(state==='fight'||state==='roundEnd')) netShot(m); break;
     case 'dg': if(isOnline()&&rival&&(m.k==='roll'||m.k==='hop')){ const D=DODGE[m.k]; rival.dodgeKind=m.k; rival.dodgeT=rival.dodgeDur=D.dur; rival.ddx=+m.x||0; rival.ddz=+m.z||0; } break;   // 相手の回避（見た目だけ。位置は相手から届く）
     case 'ch': if(isOnline()&&rival){ if(m.on){ if(rival.weap.charge) chargeStart(rival); } else if(rival.chargeT>=0){ rival.chargeT=-1; stopChargeSfx(rival); } } break;   // 相手のチャージ（光と音だけ）
-    case 'w': if(isOnline()&&rival&&state==='fight'){ const md=rival.melee; rival.slot=1; rival.swingDur=Math.min(0.34,md.rate*0.92); rival.swingT=rival.swingDur; rival.swingDir=m.dir||1;
+    case 'w': if(isOnline()&&rival&&state==='fight'){ const md=rival.melee; rival.slot=1; rival.swingDur=Math.min(0.34,md.rate*0.92); rival.swingT=rival.swingDur; rival.swingDir=m.dir||1; rival.ctrSwing=!!m.z;
       sfxSwish(rival,md); const heavy=md.model==='axe'||md.model==='hammer'||md.model==='scythe'; rival.pendHit=rival.swingDur*(heavy?0.3:0.2); } break;
     case 'u': if(isOnline()&&rival&&state==='fight'){
       if(m.k==='medkit') rival.healT=0.9;
       else if(m.k==='pad') addZone({type:'pad',x:m.x,z:m.z,r:0.75,t:Infinity,owner:rival});
       else spawnThrow(rival,UTILS.find(u=>u.kind===m.k)||rival.util,...m.o,...m.v); } break;
-    case 'h': if(isOnline()){ hitmarkT=0.18; $('hitmark').style.color=m.hd?'#ff3355':'#fff'; beep(m.hd?1500:1100,0.05,0.12,'triangle'); sfxHit(!!m.hd); dmgNumber(m.a,!!m.hd,rival);
+    case 'h': if(isOnline()){ hitmarkT=0.18; $('hitmark').style.color=m.hd?'#ff3355':'#fff'; beep(m.hd?1500:1100,0.05,0.12,'triangle'); sfxHit(!!m.hd); dmgNumber(m.a,!!m.hd,rival); if(m.ct) counterFx();
       if(player.lifesteal&&player.hp>0) player.hp=Math.min(player.maxHp,player.hp+m.a*player.lifesteal); } break;
     case 'dead': if(net.role==='host'&&isOnline()){ net.dead.guest={head:!!m.hd}; if(net.deadT==null) net.deadT=0.25; } break;
     case 'rend': if(net.role==='guest'&&isOnline()) netRoundEnd(m.hd,m.gd,m.hh,m.gh); break;
@@ -3563,7 +3584,7 @@ function updateNetRival(dt){
 // 相手の発砲を再生（弾は見た目と自分への当たり判定に使う）
 function netShot(m){
   const e=rival, wp=e.weap; e.firedT=0.3;
-  for(const d of m.d) spawnBullet(e,m.o[0],m.o[1],m.o[2],d[0],d[1],d[2],wp);
+  for(const d of m.d) spawnBullet(e,m.o[0],m.o[1],m.o[2],d[0],d[1],d[2],wp,!!m.z);   // z：相手がゾーン中に撃った弾
   const d=dist(e,player)||1;
   rivalFlashT=NO_SPARK.has(wp.name)?0:0.05; sfxShot(wp,0.34*clamp(1-d/70,0.2,1),clamp(d/45,0,0.85),e);
   if(rivalModel.root.visible){ rivalModel.muzzle.updateWorldMatrix(true,false);
@@ -3882,7 +3903,7 @@ function setPracticeGun(i){
 function cyclePracticeGun(){ setPracticeGun(pracGun+1); const w=player.weap;
   toast(`<span style="color:${w.color}">${w.name}</span>${isOpen(w)?'':' <span style="color:#ffd166">（お試し：未開放）</span>'}`); if(prac.chal) prac.chal=false; resetPracStats(); }
 function startPractice(){
-  initAudio(); practice=true; resetPracStats(); prac.chal=false;
+  initAudio(); practice=true; resetPracStats(); prac.chal=false; prac.dodge=false;
   loadStage(sel.stage===-1?0:sel.stage);
   score={p:0,r:0}; round=1; curMod=null; matchPerks={p:[],r:[]}; GRAV=14; const th=currentTheme(); scene.fog.near=th.fogN; scene.fog.far=th.fogF;
   const gi=sel.gun>=0?sel.gun:Math.max(0,firstOpen(GUNS,'アサルトライフル'));
@@ -3897,8 +3918,69 @@ function startPractice(){
   state='fight'; paused=false; holdForModels(warmGuns());
   const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{});
 }
+// ================= 回避練習モード =================
+// 砲台が赤く光って「キュイーン」と溜めてから撃ってくる。弾が当たる直前にダブルタップでよけると「ジャスト回避」→ゾーン。
+// ゾーン中に砲台を撃つとカウンター。ジャスト回避が増えるほど砲台が速く・連射になる
+const DRILL_WP={name:'砲台',speed:34,life:3,dmg:15,color:'#ff3355',bounces:0,thick:2.2};
+let drillBest=0; try{ drillBest=+localStorage.getItem('rivalArenaDrill')||0; }catch(e){}
+const TUR_MAT={body:new THREE.MeshStandardMaterial({color:0x3a4048,metalness:0.7,roughness:0.4}),
+  lamp:new THREE.MeshStandardMaterial({color:0x401018,emissive:0xff2244,emissiveIntensity:0})};
+function makeTurretMesh(){
+  const g=new THREE.Group(), piv=new THREE.Group(); g.add(piv); const head=new THREE.Group(); head.position.y=1.35; piv.add(head);
+  const add=(par,geo,mat,x,y,z)=>{ const m=new THREE.Mesh(geo,mat); m.position.set(x,y,z); m.castShadow=true; par.add(m); return m; };
+  add(piv,new THREE.CylinderGeometry(0.4,0.5,0.12,20),TGT_MAT.metal,0,0.06,0);
+  add(piv,new THREE.CylinderGeometry(0.09,0.12,1.2,12),TUR_MAT.body,0,0.7,0);
+  add(head,new THREE.BoxGeometry(0.5,0.4,0.55),TUR_MAT.body,0,0,0);
+  add(head,new THREE.CylinderGeometry(0.06,0.07,0.7,12),TGT_MAT.metal,0,0.02,0.55).rotation.x=Math.PI/2;   // 砲身（+z が前）
+  const lamp=add(head,new THREE.SphereGeometry(0.11,14,10),TUR_MAT.lamp.clone(),0,0.26,0.05);
+  add(head,new THREE.SphereGeometry(0.17,16,12),TGT_MAT.head,0,0.32,-0.12);   // 頭（ヘッドショットの目印）
+  g.userData.piv=piv; g.userData.head=head; g.userData.lamp=lamp; return g; }
+function spawnTurret(){
+  const p=targetSpot(), mesh=makeTurretMesh();
+  const t={x:p.x,z:p.z,y:0,r:0.36,height:1.84,hp:100,maxHp:100,armor:1,shield:0,lastHitT:9,hitT:0,isTarget:true,turret:true,alive:true,downT:0,mesh,bx:p.x,bz:p.z,mv:null,up:0,
+    ph:'wait',pt:1.4,shots:0};
+  mesh.position.set(t.x,0,t.z); mesh.scale.setScalar(0.01); scene.add(mesh); targets.push(t);
+  const D=spatial(t.x,t.z,OUT); noise('bandpass',700,300,0.2,0.18,2,0,D); beep(180,0.15,0.12,'square',0.05,90,D); }
+const drillLv=()=>1+Math.floor(prac.jd/5);
+function updateDrill(dt){
+  for(const t of targets){
+    if(!t.alive){ t.downT+=dt; t.mesh.userData.piv.rotation.x=-(Math.min(1,t.downT/0.35)**2)*Math.PI/2; if(t.downT>1.1){ scene.remove(t.mesh); t.dead=true; } continue; }
+    t.up=Math.min(1,t.up+dt*3); t.mesh.scale.setScalar(0.01+0.99*t.up*(2-t.up));
+    const hd=t.mesh.userData.head, lamp=t.mesh.userData.lamp, a=Math.atan2(player.x-t.x,player.z-t.z);
+    hd.rotation.y=a; const see=player.hp>0&&los(t,player,true), lv=drillLv();
+    // 物陰に入られて2.5秒撃てないときは、見える所へ出直す
+    t.unseen=see?0:(t.unseen||0)+dt; if(t.unseen>2.5&&t.ph==='wait'){ scene.remove(t.mesh); t.dead=true; t.alive=false; spawnTurret(); continue; }
+    rival.x=t.x; rival.z=t.z; rival.y=0;   // 弾の持ち主（ヒュンという音・ダメージ計算用）
+    t.pt-=dt;
+    if(t.ph==='wait'){ lamp.material.emissiveIntensity=0; if(t.pt<=0&&see&&t.up>=1){ t.ph='charge'; t.pt=Math.max(0.35,0.7-lv*0.04); t.shots=lv>=6?3:lv>=3?2:1;
+        const D=spatial(t.x,t.z,OUT); beep(500,t.pt,0.08,'sawtooth',0,1800,D); } }
+    else if(t.ph==='charge'){ lamp.material.emissiveIntensity=4*(1-t.pt/0.7)+Math.sin(performance.now()/30)*0.6;
+      if(t.pt<=0){ t.ph='fire'; t.pt=0; } }
+    if(t.ph==='fire'&&t.pt<=0){
+      // 砲身の先から、今いる所（胸）へまっすぐ撃つ（先読みしないので、横へよければ当たらない）
+      const ox=t.x+Math.sin(a)*0.95, oz=t.z+Math.cos(a)*0.95, oy=1.37, tx=player.x, ty=player.y+1.1, tz=player.z, l=Math.hypot(tx-ox,ty-oy,tz-oz)||1;
+      spawnBullet(rival,ox,oy,oz,(tx-ox)/l,(ty-oy)/l,(tz-oz)/l,{...DRILL_WP,speed:DRILL_WP.speed+lv*3});
+      const D=spatial(t.x,t.z,OUT); noise('bandpass',1800,600,0.12,0.3,1.5,0,D); beep(220,0.12,0.2,'square',0,80,D);
+      emit(ox,oy,oz,0xff4060,8,3); prac.fired++;
+      t.shots--; if(t.shots>0) t.pt=0.22; else { t.ph='wait'; t.pt=Math.max(0.5,1.4-lv*0.1)*rand(0.85,1.25); lamp.material.emissiveIntensity=0; } }
+  }
+  targets=targets.filter(t=>!t.dead);
+  if(!targets.some(t=>t.alive)){ prac.respawn=(prac.respawn||0)+dt; if(prac.respawn>0.8){ prac.respawn=0; spawnTurret(); } }
+}
+// 回避練習の記録：ジャスト回避・被弾（damage から呼ぶ）
+function drillDodge(){ prac.jd++; prac.streak++; if(prac.streak>prac.bestStreak) prac.bestStreak=prac.streak;
+  if(prac.streak>drillBest){ drillBest=prac.streak; try{ localStorage.setItem('rivalArenaDrill',String(drillBest)); }catch(e){} }
+  if(prac.jd%5===0){ toast(`<span style="color:#7bdff2">レベル ${drillLv()}</span>　砲台が速くなった！`); beep(880,0.12,0.1,'square'); beep(1320,0.2,0.1,'square',0.12); } }
+function drillHit(){ prac.hit++; prac.streak=0; }
+function startDodgeDrill(){
+  startPractice(); prac.dodge=true; Object.assign(prac,{jd:0,hit:0,streak:0,bestStreak:0,fired:0,respawn:0});
+  rival.hp=rival.maxHp=9999;
+  for(const t of targets) scene.remove(t.mesh); targets=[]; spawnTurret();
+  showBanner('<div class="big" style="color:#7bdff2">回避練習</div><div>砲台が赤く光ったら弾が来る！ 当たる直前に移動キー2回でよけよう</div><div style="font-size:16px;opacity:.85">ぎりぎりでよけるとゾーン → そのあいだに砲台を撃つとカウンター</div>');
+  setTimeout(()=>{ if(practice&&prac.dodge) hideBanner(); },3500);
+}
 function endPractice(){
-  practice=false; prac.chal=false;
+  practice=false; prac.chal=false; prac.dodge=false;
   for(const t of targets) scene.remove(t.mesh); targets=[];
   hideBanner(); state='select'; paused=false; showOverlay('select');
 }
@@ -3914,9 +3996,10 @@ function startReload(e){ if(e.reloadT>0||e.ammo===e.weap.mag) return; e.reloadT=
   if(e===player&&vm) reloadAnim={plan:reloadPlan(e.weap,vm.b,e.weap.mag-e.ammo),last:0};
   else if(e!==player){ const d=dist(e,player), v=clamp(1-d/25,0,1)*0.5; if(v>0.02){ noise('bandpass',1900,1200,0.04,0.2*v,4,e.weap.reload*0.5); noise('bandpass',2600,1500,0.06,0.25*v,5,e.weap.reload*0.75); } } }
 const _v=new THREE.Vector3(), _r=new THREE.Vector3(), _u=new THREE.Vector3();
-function spawnBullet(owner,ox,oy,oz,dx,dy,dz,wp){
+function spawnBullet(owner,ox,oy,oz,dx,dy,dz,wp,ctr=false){   // ctr：ゾーン中に撃ったカウンターの弾（オンラインでは速く飛ぶ）
   const mesh=new THREE.Mesh(tracerGeo,tracerMat(wp.color)); mesh.visible=false; scene.add(mesh);
-  bullets.push({x:ox,y:oy,z:oz,vx:dx*wp.speed,vy:dy*wp.speed,vz:dz*wp.speed,speed:wp.speed,life:wp.life,owner,dmg:wp.dmg,bounces:wp.bounces,bounced:false,mesh,
+  const sm=ctr&&isOnline()?ZONE_BULLET:1, sp=wp.speed*sm;
+  bullets.push({x:ox,y:oy,z:oz,vx:dx*sp,vy:dy*sp,vz:dz*sp,speed:sp,life:wp.life/sm,owner,dmg:wp.dmg,bounces:wp.bounces,bounced:false,mesh,ctr,
     grav:wp.grav||0,explode:wp.explode||null,pierce:!!wp.pierce,thick:wp.thick||1,smoke:!!wp.smoke,tl:Math.min(2.5,wp.speed*0.012+0.3),trav:0});
 }
 function fire(e){
@@ -3944,8 +4027,8 @@ function shootOnce(e){
     const dirs=[];
     for(let i=0;i<wp.pellets;i++){
       const d=_v.clone().addScaledVector(_r,rand(-sp,sp)).addScaledVector(_u,rand(-sp,sp)).normalize();
-      spawnBullet(e,O.x,O.y,O.z,d.x,d.y,d.z,wp); dirs.push([+d.x.toFixed(4),+d.y.toFixed(4),+d.z.toFixed(4)]);}
-    netSend({t:'f',o:[+O.x.toFixed(3),+O.y.toFixed(3),+O.z.toFixed(3)],d:dirs});
+      spawnBullet(e,O.x,O.y,O.z,d.x,d.y,d.z,wp,zoneT>0); dirs.push([+d.x.toFixed(4),+d.y.toFixed(4),+d.z.toFixed(4)]);}
+    const fm={t:'f',o:[+O.x.toFixed(3),+O.y.toFixed(3),+O.z.toFixed(3)],d:dirs}; if(zoneT>0) fm.z=1; netSend(fm);
     e.firedT=0.3;
     kick=Math.min(0.15,kick+wp.kick); pitch=clamp(pitch+wp.kick*0.35,-1.5,1.5); yaw+=rand(-1,1)*wp.kick*0.1;
     if(!tps){ vmRecV+=Math.min(1.2,0.12+wp.kick*12)*43; if(vmRec+vmRecV/43>1.6) vmRecV=(1.6-vmRec)*43; vmRecSide=rand(-1,1); }
@@ -4007,14 +4090,14 @@ function swing(e){
   e.meleeCD=m.rate; e.swingDur=Math.min(0.34,m.rate*0.92); e.swingT=e.swingDur; e.swingDir=-(e.swingDir||-1); sfxSwish(e,m);
   // ribrの攻撃は「振り抜いた瞬間」に当たる（振りかぶりを見てからよけられる）
   if(e!==player){ const heavy=m.model==='axe'||m.model==='hammer'||m.model==='scythe'; e.pendHit=e.swingDur*(heavy?0.3:0.2); return; }
-  netSend({t:'w',dir:e.swingDir});
+  const wm={t:'w',dir:e.swingDir}; if(zoneT>0) wm.z=1; netSend(wm);
   meleeHit(e);
 }
 function meleeHit(e){
   const m=e.melee, t=e===player?(practice?nearestTarget(e):rival):player; if(!t||t.hp<=0||e.hp<=0) return;
   const d=dist(e,t), a=Math.atan2(t.z-e.z,t.x-e.x);
   if(d<m.range+t.r&&Math.abs(angDiff(facing(e),a))<m.arc&&Math.abs(t.y-e.y)<1.6&&los(e,t,true)){
-    damage(t,m.dmg*e.meleeMul,false,false,e); sfxThud(); emit(t.x,t.y+1.2,t.z,0xff2a2a,14,3);
+    damage(t,m.dmg*e.meleeMul,false,false,e,e===rival&&isOnline()&&e.ctrSwing); sfxThud(); emit(t.x,t.y+1.2,t.z,0xff2a2a,14,3);
     if(m.knock){ for(let i=0;i<6;i++) moveEntity(t,Math.cos(a)*m.knock/6,Math.sin(a)*m.knock/6); t.vy=4; }
   }
 }
@@ -4091,7 +4174,7 @@ let dtapOn=true; try{ dtapOn=localStorage.getItem('rivalArenaDtap')!=='0'; }catc
 const lastTap={}, tapN={};
 let tapRun=null;   // 走っている方向の動作名（fwd/back/left/right）
 function checkDoubleTap(c){
-  if(!dtapOn) return;
+  if(!dtapOn&&!(practice&&prac.dodge)) return;   // 回避練習では設定に関係なくダブルタップで回避
   const D={fwd:[1,0],back:[-1,0],right:[0,1],left:[0,-1]};
   for(const a in D) if(isAct(a,c)){ const now=performance.now();
     tapN[a]=lastTap[a]&&now-lastTap[a]<260?(tapN[a]||1)+1:1; lastTap[a]=now;
@@ -4260,7 +4343,7 @@ function actDown(c,rep=false){
   if(isAct('reload',c)) startReload(player);
   if(rep) return;
   checkDoubleTap(c);
-  if(practice&&isAct('chal',c)) startChallenge();
+  if(practice&&!prac.dodge&&isAct('chal',c)) startChallenge();
   if(practice&&isAct('pgun',c)) cyclePracticeGun();
   if(isAct('crouch',c)) trySlide();
   if(isAct('jump',c)) tryJump(player);
@@ -4476,16 +4559,20 @@ function surface(hit,b,nx,ny,nz){
     else {n.y=1;p.y=w.h;} }
   return {p,n};
 }
-function damage(e,amt,head,silent=false,src=null){
+function damage(e,amt,head,silent=false,src=null,ctr=false){   // ctr：ゾーン中に撃ったカウンターの攻撃
   if(e.hp<=0) return;
   if(isOnline()&&e===rival) return;   // オンラインでは相手のHPは相手側で計算する（結果が届いたら表示）
-  if(e.iframeT>0&&src!==e){ if(e===player) dodgeFx(); else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
+  if(e.iframeT>0&&src!==e){ if(e===player){ if(practice&&prac.dodge&&src===rival) drillDodge(); if(!(src&&src!==e&&startZone())) dodgeFx(); } else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
+  if(e===player&&practice&&prac.dodge&&src===rival) drillHit();   // 回避練習：砲台の弾に当たった
   if(e===player&&src===rival&&!isOnline()) amt*=diff().dmg;
+  // ゾーン中の攻撃はカウンター（オンラインでは相手から届いた弾・近接の印 ctr で、自分が受けるダメージを増やす）
+  const counter=src&&src!==e&&(ctr||(src===player&&zoneT>0));
+  if(counter){ amt*=COUNTER_MUL; if(!silent&&src===player) counterFx(); }
   if(src&&src!==e) amt*=src.dmgMul*(src.boostT>0?1.6:1)*(src.lastStand&&src.hp<src.maxHp*0.35?1+src.lastStand:1);
   amt*=e.armor;
   if(e.shield>0){ const a=Math.min(e.shield,amt*0.7); e.shield-=a; amt-=a; }   // アーマーが7割を肩代わり
   e.hp-=amt; e.hitT=0.15; e.lastHitT=0;
-  if(isOnline()&&e===player&&src===rival&&amt>0) netSend({t:'h',a:+amt.toFixed(1),hd:head?1:0});
+  if(isOnline()&&e===player&&src===rival&&amt>0){ const hm={t:'h',a:+amt.toFixed(1),hd:head?1:0}; if(counter) hm.ct=1; netSend(hm); }
   if(e.hp<=0) e.killedByHead=!!head;
   if(src&&src!==e&&src.lifesteal&&src.hp>0) src.hp=Math.min(src.maxHp,src.hp+amt*src.lifesteal);
   if(e!==player&&src===player) dmgNumber(amt,head,e);
@@ -4526,7 +4613,7 @@ function explode(x,y,z,b){
   shake=Math.max(shake,clamp(1.3-pd/15,0,1)*0.9); sfxBoom(0.6*clamp(1-pd/70,0.25,1),{x,z});
   for(const e of hitList()){ if(e.hp<=0) continue;
     const d=Math.hypot(e.x-x,e.y+e.height*0.5-y,e.z-z);
-    if(d<ex.r+e.r&&los({x,z},e,true)){ const f=1-Math.max(0,d-e.r)/ex.r; damage(e,ex.dmg*f*(e===b.owner?0.5:1),false,false,b.owner); } }
+    if(d<ex.r+e.r&&los({x,z},e,true)){ const f=1-Math.max(0,d-e.r)/ex.r; damage(e,ex.dmg*f*(e===b.owner?0.5:1),false,false,b.owner,b.ctr); } }
 }
 function stepBullet(b,dt){
   const n=Math.max(1,Math.ceil(b.speed*dt/0.25)), h=dt/n;
@@ -4561,13 +4648,13 @@ function stepBullet(b,dt){
         if(b.explode){ explode(b.x,b.y,b.z,b); return false; }
         const head=ry>e.height-0.33;
         if(e.isTarget){ prac.hits++; if(head) prac.heads++; sfxTargetHit(e,head); }
-        damage(e,b.dmg*(head?b.owner.headMul:b.owner.bodyMul),head,false,b.owner);
+        damage(e,b.dmg*(head?b.owner.headMul:b.owner.bodyMul),head,false,b.owner,b.ctr);
         emit(b.x,b.y,b.z,e.isTarget?0xd8c8a0:e===rival?0xff2a2a:0xff5555,10,3); return false; } }
   }
   return true;
 }
-function updateBullets(dt){
-  for(const b of bullets){
+function updateBullets(wdt,pdt=wdt){   // pdt：自分の弾の時間（ゾーン中も自分の弾はふつうの速さ）
+  for(const b of bullets){ const dt=b.owner===player?pdt:wdt;
     b.alive=b.life>0&&stepBullet(b,dt); b.life-=dt;
     if(b.alive){ const len=clamp(b.trav-0.8,0,b.tl), sp=Math.hypot(b.vx,b.vy,b.vz);
       b.mesh.visible=len>0.05; b.mesh.scale.set(b.thick,b.thick,len);
@@ -4691,7 +4778,7 @@ function renderSelect(){
         ${net.role==='guest'?'<br><small>ステージ・時間帯は部屋を作った人が決めます</small>':''}</div>
         <button id="startBtn" style="background:#0a7ea4;border-color:#7bdff2">準備OK ▶ 友達と対戦</button><button id="pracBtn" style="display:none"></button>`
       :`<button id="startBtn">この装備で戦う ▶</button><div class="hint">カードをダブルクリックでもすぐ開始</div>
-      <button id="pracBtn">🎯 射撃練習（未開放の銃もお試しOK）</button>`}
+      <button id="pracBtn">🎯 射撃練習（未開放の銃もお試しOK）</button><button id="dodgeBtn" class="pracAlt">🌀 回避練習</button>`}
     </div></div>`;
   const keepScroll=ovbox.scrollTop;
   ovbox.querySelectorAll('.selL .card').forEach(c=>{
@@ -4713,6 +4800,7 @@ function renderSelect(){
   ovbox.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{ sel.rival=b.dataset.r; saveSel(); const st=ovbox.scrollTop; renderSelect(); ovbox.scrollTop=st; });
   ovbox.querySelector('#startBtn').onclick=startMatch;
   ovbox.querySelector('#pracBtn').onclick=startPractice;
+  { const db=ovbox.querySelector('#dodgeBtn'); if(db) db.onclick=startDodgeDrill; }
   ovbox.querySelector('#charaBtn').onclick=()=>openChara('select');
   ovbox.querySelector('#backTitle').onclick=()=>{ if(net&&net.peer&&!confirm('オンライン対戦をやめてタイトルに戻りますか？')) return; goTitle(); };
   ovbox.scrollTop=keepScroll;
@@ -4771,6 +4859,7 @@ function showOverlay(kind){
     <div class="go">クリックして ${rivalName()} と対戦（ステージ選択へ）</div>
     <div class="tbtns">
       <button class="pbtn" id="goPrac" style="color:#ffd166;border-color:#ffd166">🎯 射撃練習</button>
+      <button class="pbtn" id="goDodge" style="color:#7bdff2;border-color:#7bdff2">🌀 回避練習</button>
       <button class="pbtn" id="goOnline" style="color:#7bdff2;border-color:#7bdff2">🌐 友達とオンライン対戦</button>
       <button class="pbtn tchar" id="goChara"><img src="${charaThumbURL()}">👤 キャラクター作成</button>
       <button class="pbtn" id="goKeys">⌨ キー設定</button>
@@ -4779,6 +4868,7 @@ function showOverlay(kind){
   if(kind==='title'){
     $('goOnline').onclick=ev=>{ ev.stopPropagation(); initAudio(); state='online'; showOverlay('online'); };
     $('goPrac').onclick=ev=>{ ev.stopPropagation(); startPractice(); };
+    $('goDodge').onclick=ev=>{ ev.stopPropagation(); startDodgeDrill(); };
     $('goChara').onclick=ev=>{ ev.stopPropagation(); initAudio(); openChara('title'); };
     $('goKeys').onclick=ev=>{ ev.stopPropagation(); openKeys('title'); }; }
   if(kind==='online'){ ovbox.innerHTML=onlineMenuHTML(); wireOnlineMenu(); }
@@ -4786,7 +4876,7 @@ function showOverlay(kind){
   if(kind==='netwait'){ ovbox.innerHTML=`<h1 style="font-size:36px;color:#7bdff2">🌐 ${net?.waitMsg||'待っています…'}</h1><div class="spin"></div><button class="pbtn" id="netQuit">対戦をやめる</button>`;
     $('netQuit').onclick=ev=>{ ev.stopPropagation(); if(confirm('オンライン対戦をやめてタイトルに戻りますか？')) goTitle(); }; }
   if(kind==='pause'){ const on=isOnline();
-    ovbox.innerHTML=`<h1 style="font-size:44px;color:#eee">${practice?'射撃練習':on?'メニュー':'一時停止中'}</h1>${on?'<p style="color:#ffd166">⚠ オンライン対戦中は時間が止まりません</p>':''}<div class="go">クリックで${on?'戻る':'再開'}</div>
+    ovbox.innerHTML=`<h1 style="font-size:44px;color:#eee">${practice?(prac.dodge?'回避練習':'射撃練習'):on?'メニュー':'一時停止中'}</h1>${on?'<p style="color:#ffd166">⚠ オンライン対戦中は時間が止まりません</p>':''}<div class="go">クリックで${on?'戻る':'再開'}</div>
     ${practice?`<button class="pbtn" id="pracSwap">🔫 銃を持ち替え（${KL('pgun')}）</button><button class="pbtn" id="pracExit">練習を終える</button>`:''}
     <button class="pbtn" id="pauseKeys">⌨ キー設定</button><button class="pbtn" id="toTitle">🏠 ${on?'対戦をやめてタイトルへ':'タイトルに戻る'}</button>`;
     $('pauseKeys').onclick=ev=>{ ev.stopPropagation(); openKeys('pause'); };
@@ -4805,6 +4895,10 @@ function showOverlay(kind){
 }
 const hudCache={bf:null,rb:null,pr:null};
 function updatePracHUD(){
+  if(prac.dodge){ const h=`<div class="pt">🌀 回避練習　<span style="color:#7bdff2">レベル ${drillLv()}</span></div>
+    <div>ジャスト回避 <b>${prac.jd}</b>　被弾 <b>${prac.hit}</b>　連続 <b>${prac.streak}</b>（ベスト ${drillBest}）　砲台撃破 <b>${prac.kills}</b></div>
+    <div class="ph">赤く光ったら弾が来る：当たる直前に移動キー2回で回避　ゾーン中に撃つとカウンター　${KL('pgun')}：銃を持ち替え　ESC：メニュー</div>`;
+    if(h!==hudCache.pr){ hudCache.pr=h; $('prac').innerHTML=h; } return; }
   const acc=prac.shots?Math.round(prac.hits/prac.shots*100):0, w=player.weap, best=pracBest[w.name]||0;
   const h=`<div class="pt">🎯 射撃練習　<span style="color:${w.color}">${w.name}</span>${isOpen(w)?'':'<small style="color:#ffd166">（お試し）</small>'}</div>
     <div>命中率 <b>${acc}%</b>　撃破 <b>${prac.kills}</b>　ヘッドショット <b>${prac.heads}</b>　ダメージ <b>${Math.round(prac.dmg)}</b></div>
@@ -4867,16 +4961,18 @@ function update(dt){
   if(subT>0){subT-=dt; if(subT<=0) $('sub').style.display='none';}
   if(state==='countdown'){ showBanner(`${roundBanner()}<div class="big">${Math.ceil(stateT)}</div>`);
     if(stateT<=0){ state='fight'; showBanner('<div class="big" style="color:#ffd166">FIGHT!</div>'); setTimeout(()=>{if(state==='fight')hideBanner();},700); beep(880,0.25,0.15,'square'); } }
+  // ゾーン中は自分以外（相手・弾・爆発など）の時間がゆっくり進む
+  if(state!=='fight') zoneT=0; zoneCD-=dt; const wdt=dt*zoneScale(); if(zoneT>0) zoneT-=dt;
   if(state==='fight'&&practice){
-    tickFighter(player,dt); updatePlayer(dt); updateBullets(dt); updateThrows(dt); updateZones(dt); updateTargets(dt);
+    tickFighter(player,dt); updatePlayer(dt); updateBullets(wdt,dt); updateThrows(wdt); updateZones(wdt); if(prac.dodge) updateDrill(wdt); else updateTargets(wdt);
     if(player.hp<player.maxHp) player.hp=Math.min(player.maxHp,Math.max(1,player.hp+40*dt));   // 練習中は倒れない
     updatePracHUD();
   } else if(state==='fight'&&isOnline()){
     tickFighter(player,dt); tickFighter(rival,dt);
     updatePlayer(dt); updateNetRival(dt); updateBullets(dt); updateThrows(dt); updateZones(dt); updatePickups(dt); netTick(dt);
   } else if(state==='fight'){
-    tickFighter(player,dt); tickFighter(rival,dt);
-    updatePlayer(dt); updateRival(dt); updateBullets(dt); updateThrows(dt); updateZones(dt); updatePickups(dt); trackHabits(dt); checkDeath();
+    tickFighter(player,dt); tickFighter(rival,wdt);
+    updatePlayer(dt); updateRival(wdt); updateBullets(wdt,dt); updateThrows(wdt); updateZones(wdt); updatePickups(dt); trackHabits(dt); checkDeath();
   } else if(state==='roundEnd'){
     updateBullets(dt); updateThrows(dt); updateZones(dt);
     player.blindT-=dt;
@@ -4884,7 +4980,7 @@ function update(dt){
     if(player.hp<=0) deathCam=Math.min(1,deathCam+dt*2);
     if(stateT<=0){ hideBanner(); if(score.p>=3||score.r>=3){ state='gameover'; grantKeys(); showOverlay('gameover'); } else openPerk(); }
   }
-  updateParts(dt); updateSparks(dt); updateDebris(dt);
+  updateParts(wdt); updateSparks(wdt); updateDebris(wdt);
 }
 function render(){
   const p=player, wp=p.weap;
@@ -4936,11 +5032,12 @@ function render(){
   else { boomSprite.visible=false; boomLight.intensity=0; }
   flashMesh.visible=flashT>0; flashMesh.rotation.z=Math.random()*6; flashLight.intensity=flashT>0?6:0;
   updatePlayerBody(p,tw);
+  { const zf=document.getElementById('zoneFx'), o=zoneT>0?String(clamp(zoneT/0.35,0,1)):'0'; if(zf.style.opacity!==o) zf.style.opacity=o; }   // ゾーン中は画面のふちが青く光る
   // ライバル
   const rm=rivalModel; rm.root.position.set(rival.x,rival.y,rival.z); rm.root.rotation.y=-rival.angle;
   rm.root.visible=!inMenu()&&!practice;
   if(rm.isVrm){ rm.driven=true; rival.aimPitch=Math.atan2(player.y-rival.y,Math.max(1,dist(rival,player))); rival.aimTarget=new THREE.Vector3(player.x,player.y+1.25,player.z);   // 相手の方へ顔を上げ下げ
-    if(rm.root.visible) rm.update(frameDt,rival); }   // VRoid のキャラ：状態に合わせて動きを選ぶ
+    if(rm.root.visible) rm.update(frameDt*zoneScale(),rival); }   // VRoid のキャラ：状態に合わせて動きを選ぶ
   else { const swg=Math.sin(rival.walk)*0.55; rm.legs[0].rotation.z=swg; rm.legs[1].rotation.z=-swg; }
   applyDodgePose(rm,rival);   // 転がる・後ろ跳び
   if(rm.tick&&rm.root.visible) rm.tick(performance.now()/1000);   // スキンの演出（マント・オーラ・発光など）
