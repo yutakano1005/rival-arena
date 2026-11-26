@@ -252,6 +252,22 @@
   .dodgeTxt.foe{top:40%;font-size:22px;color:#ffb347;text-shadow:0 0 8px #ff7a1a,0 2px 3px #000}
   .dodgeTxt.zone{font-size:30px;color:#e6fbff;text-shadow:0 0 12px #4cc9f0,0 0 24px #4cc9f0,0 2px 3px #000;animation-duration:.9s}
   .dodgeTxt.counter{top:44%;font-size:28px;color:#ffe066;text-shadow:0 0 10px #ff9f1a,0 2px 3px #000}
+  .zoneFlash{position:fixed;inset:0;pointer-events:none;z-index:31;background:radial-gradient(circle at center,#fff 0%,rgba(190,245,255,.9) 35%,rgba(76,201,240,.5) 70%,rgba(76,201,240,0) 100%);animation:zoneFlash .45s ease-out forwards}
+  @keyframes zoneFlash{0%{opacity:1}100%{opacity:0}}
+  .zoneLines{position:fixed;inset:-20%;pointer-events:none;z-index:30;
+    background:repeating-conic-gradient(from 0deg,rgba(220,250,255,.75) 0deg 1.2deg,rgba(0,0,0,0) 1.2deg 7deg);
+    -webkit-mask:radial-gradient(circle at center,transparent 22%,#000 60%);mask:radial-gradient(circle at center,transparent 22%,#000 60%);
+    animation:zoneLines .85s ease-out forwards}
+  @keyframes zoneLines{0%{opacity:0;transform:scale(1.4) rotate(0)}15%{opacity:1}100%{opacity:0;transform:scale(1) rotate(6deg)}}
+  .zoneRing{position:fixed;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;pointer-events:none;z-index:31;
+    border:6px solid rgba(160,240,255,.95);box-shadow:0 0 30px #4cc9f0,inset 0 0 30px #4cc9f0;animation:zoneRing .65s cubic-bezier(.1,.7,.3,1) forwards}
+  @keyframes zoneRing{0%{opacity:1;transform:scale(.2)}100%{opacity:0;transform:scale(40);border-width:1px}}
+  .zoneBig{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%);pointer-events:none;z-index:32;font-size:120px;font-weight:900;font-style:italic;
+    color:#f2fdff;text-shadow:0 0 18px #4cc9f0,0 0 40px #4cc9f0,0 0 80px #1a7fd0,0 4px 6px #000;white-space:nowrap;animation:zoneBig 1.25s ease-out forwards}
+  .zoneBig span{display:inline-block;animation:zoneLetter .35s cubic-bezier(.2,1.6,.4,1) backwards}
+  .zoneBig span:nth-child(2){animation-delay:.05s}.zoneBig span:nth-child(3){animation-delay:.1s}.zoneBig span:nth-child(4){animation-delay:.15s}
+  @keyframes zoneLetter{0%{opacity:0;transform:translateY(-40px) scale(2.2)}100%{opacity:1;transform:none}}
+  @keyframes zoneBig{0%{letter-spacing:40px}25%{letter-spacing:14px}75%{opacity:1;letter-spacing:18px}100%{opacity:0;letter-spacing:60px}}
   #zoneFx{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .15s;
     background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(40,140,200,.28) 75%,rgba(10,40,90,.6) 100%);box-shadow:inset 0 0 60px rgba(120,220,255,.5)}
   @keyframes dodgeUp{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.1)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
@@ -3138,6 +3154,7 @@ let dmgNums=[], roundStreak=0, bonusKeys=0, slowT=0, killPunch=0;
 // ゾーン：ぎりぎりでかわす（回避の無敵中に攻撃が当たる）と、少しのあいだ相手や弾がゆっくりになり、自分の攻撃がカウンター（ダメージ増し）になる
 // オンラインは相手の時間を変えられないので、代わりにゾーン中に撃った自分の弾が ZONE_BULLET 倍の速さで飛ぶ
 const ZONE_T=2.2, ZONE_SLOW=0.3, ZONE_CD=4, COUNTER_MUL=1.5, ZONE_BULLET=2.5;
+const JUST_WIN=0.1;   // ジャスト回避になる時間（回避を始めてから何秒以内に当たればいいか）。小さいほどシビア
 let zoneT=0, zoneCD=0, lastCounter=0, zoneAuto=false;
 // ゾーンに入って最初の1回の攻撃は、相手（練習では一番近い的・砲台）へ自動で向く。見えない相手には向かない
 function zoneAutoTarget(){
@@ -3151,13 +3168,27 @@ function zoneAutoAim(from,target){
   const d=target.clone().sub(from).normalize(); yaw=Math.atan2(-d.x,-d.z); pitch=clamp(Math.asin(clamp(d.y,-1,1)),-1.5,1.5);
   zoneAuto=false; beep(1600,0.06,0.06,'square'); beep(2400,0.08,0.05,'square',0.05); return d; }
 // ゾーン中の時間の進み方（最後の0.35秒でふつうに戻す）
-function zoneScale(){ if(!(zoneT>0)||isOnline()) return 1; return ZONE_SLOW+(1-ZONE_SLOW)*clamp(1-zoneT/0.35,0,1); }
+// 入った瞬間の 0.12 秒はほぼ止まる（ヒットストップ）
+function zoneScale(){ if(!(zoneT>0)||isOnline()) return 1; if(ZONE_T-zoneT<0.12) return 0.04; return ZONE_SLOW+(1-ZONE_SLOW)*clamp(1-zoneT/0.35,0,1); }
+let zonePunch=0, zoneBeatT=0;
 function startZone(){
   if(zoneCD>0||state!=='fight') return false;
-  zoneT=ZONE_T; zoneCD=ZONE_CD; zoneAuto=true;
-  const el=document.createElement('div'); el.className='dodgeTxt zone'; el.textContent='ジャスト回避！'; document.body.appendChild(el); setTimeout(()=>el.remove(),900);
-  if(actx){ beep(900,0.45,0.1,'sine',0,180); noise('lowpass',1200,150,0.6,0.22,1); beep(2400,0.15,0.04,'sine',0.05,3600); }
+  zoneT=ZONE_T; zoneCD=ZONE_CD; zoneAuto=true; zonePunch=1; zoneBeatT=0.35; shake=Math.max(shake,0.35);
+  // 画面：白い閃光 → 集中線 → 大きな「ZONE」と「ジャスト回避！」
+  const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
+  mk('zoneFlash','',500); mk('zoneLines','',900); mk('zoneRing','',700);
+  mk('zoneBig','<span>Z</span><span>O</span><span>N</span><span>E</span>',1300);
+  mk('dodgeTxt zone','ジャスト回避！',1000);
+  // 自分のまわりに光の粒がはじける
+  if(player){ emit(player.x,player.y+1.1,player.z,0x7bdff2,45,7,0); emit(player.x,player.y+1.1,player.z,0xffffff,20,4,0); }
+  // 音：ドンッという低い衝撃 → 吸い込まれるような音 → キラキラ
+  if(actx){ beep(140,0.7,0.35,'sine',0,32); noise('lowpass',900,80,0.5,0.35,1);
+    noise('highpass',600,6000,0.35,0.12,0.7,0.02); beep(900,0.5,0.08,'sine',0,180);
+    [1760,2637,3520,4186].forEach((f,i)=>beep(f,0.35,0.035,'sine',0.12+i*0.06)); }
   return true; }
+// ゾーン中のドクン、ドクンという鼓動（update から呼ぶ）
+function zoneTick(dt){ zonePunch=Math.max(0,zonePunch-dt*2.2);
+  if(zoneT>0&&actx){ zoneBeatT-=dt; if(zoneBeatT<=0){ zoneBeatT=0.6; beep(60,0.14,0.32,'sine',0,38); beep(55,0.12,0.22,'sine',0.17,35); } } }
 function counterFx(){ const now=performance.now(); if(now-lastCounter<250) return; lastCounter=now;
   const el=document.createElement('div'); el.className='dodgeTxt counter'; el.textContent='カウンター！'; document.body.appendChild(el); setTimeout(()=>el.remove(),700);
   if(actx){ beep(500,0.12,0.12,'square',0,1400); noise('bandpass',2500,1200,0.12,0.15,0.8); } }
@@ -3984,7 +4015,7 @@ function drillDodge(){ prac.jd++; prac.streak++; if(prac.streak>prac.bestStreak)
   if(prac.jd%5===0){ toast(`<span style="color:#7bdff2">レベル ${drillLv()}</span>　砲台が速くなった！`); beep(880,0.12,0.1,'square'); beep(1320,0.2,0.1,'square',0.12); } }
 function drillHit(){ prac.hit++; prac.streak=0; }
 function startDodgeDrill(){
-  startPractice(); prac.dodge=true; Object.assign(prac,{jd:0,hit:0,streak:0,bestStreak:0,fired:0,respawn:0});
+  startPractice(); prac.dodge=true; Object.assign(prac,{jd:0,ok:0,hit:0,streak:0,bestStreak:0,fired:0,respawn:0});
   rival.hp=rival.maxHp=9999;
   for(const t of targets) scene.remove(t.mesh); targets=[]; spawnTurret();
   showBanner('<div class="big" style="color:#7bdff2">回避練習</div><div>砲台が赤く光ったら弾が来る！ 当たる直前に移動キー2回でよけよう</div><div style="font-size:16px;opacity:.85">ぎりぎりでよけるとゾーン → そのあいだに砲台を撃つとカウンター</div>');
@@ -4016,7 +4047,7 @@ function spawnBullet(owner,ox,oy,oz,dx,dy,dz,wp,ctr=false){   // ctr：ゾーン
 function fire(e){
   const wp=e.weap;
   if(e.reloadT>0||e.cool>0||e.burstLeft>0) return;
-  if(e.dodgeT>0&&e.dodgeKind==='roll') return;   // 転がっている間は撃てない
+  if(e.dodgeT>0&&e.dodgeKind==='roll'&&!(e===player&&zoneT>0)) return;   // 転がっている間は撃てない（ゾーン中の自分だけは回避しながら撃てる）
   if(e.ammo<=0){ if(e===player) sfxTrigger(true); startReload(e); return; }
   e.cool=wp.rate*(e.infT>0?0.7:1);
   if(wp.burst){ e.burstLeft=wp.burst-1; e.burstT=0.07; }
@@ -4576,7 +4607,11 @@ function surface(hit,b,nx,ny,nz){
 function damage(e,amt,head,silent=false,src=null,ctr=false){   // ctr：ゾーン中に撃ったカウンターの攻撃
   if(e.hp<=0) return;
   if(isOnline()&&e===rival) return;   // オンラインでは相手のHPは相手側で計算する（結果が届いたら表示）
-  if(e.iframeT>0&&src!==e){ if(e===player){ if(practice&&prac.dodge&&src===rival) drillDodge(); if(!(src&&src!==e&&startZone())) dodgeFx(); } else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
+  if(e.iframeT>0&&src!==e){ if(e===player){
+      // ジャスト回避：回避を始めてから JUST_WIN 秒以内に当たったときだけ（それより後は、ふつうの回避）
+      const just=src&&src!==e&&e.dodgeT>0&&e.dodgeDur-e.dodgeT<=JUST_WIN;
+      if(practice&&prac.dodge&&src===rival){ if(just) drillDodge(); else prac.ok++; }
+      if(!(just&&startZone())) dodgeFx(); } else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
   if(e===player&&practice&&prac.dodge&&src===rival) drillHit();   // 回避練習：砲台の弾に当たった
   if(e===player&&src===rival&&!isOnline()) amt*=diff().dmg;
   // ゾーン中の攻撃はカウンター（オンラインでは相手から届いた弾・近接の印 ctr で、自分が受けるダメージを増やす）
@@ -4910,7 +4945,7 @@ function showOverlay(kind){
 const hudCache={bf:null,rb:null,pr:null};
 function updatePracHUD(){
   if(prac.dodge){ const h=`<div class="pt">🌀 回避練習　<span style="color:#7bdff2">レベル ${drillLv()}</span></div>
-    <div>ジャスト回避 <b>${prac.jd}</b>　被弾 <b>${prac.hit}</b>　連続 <b>${prac.streak}</b>（ベスト ${drillBest}）　砲台撃破 <b>${prac.kills}</b></div>
+    <div>ジャスト回避 <b>${prac.jd}</b>　ふつうの回避 <b>${prac.ok}</b>　被弾 <b>${prac.hit}</b>　連続 <b>${prac.streak}</b>（ベスト ${drillBest}）　砲台撃破 <b>${prac.kills}</b></div>
     <div class="ph">赤く光ったら弾が来る：当たる直前に移動キー2回で回避　ゾーン中に撃つとカウンター　${KL('pgun')}：銃を持ち替え　ESC：メニュー</div>`;
     if(h!==hudCache.pr){ hudCache.pr=h; $('prac').innerHTML=h; } return; }
   const acc=prac.shots?Math.round(prac.hits/prac.shots*100):0, w=player.weap, best=pracBest[w.name]||0;
@@ -4976,7 +5011,7 @@ function update(dt){
   if(state==='countdown'){ showBanner(`${roundBanner()}<div class="big">${Math.ceil(stateT)}</div>`);
     if(stateT<=0){ state='fight'; showBanner('<div class="big" style="color:#ffd166">FIGHT!</div>'); setTimeout(()=>{if(state==='fight')hideBanner();},700); beep(880,0.25,0.15,'square'); } }
   // ゾーン中は自分以外（相手・弾・爆発など）の時間がゆっくり進む
-  if(state!=='fight') zoneT=0; zoneCD-=dt; const wdt=dt*zoneScale(); if(zoneT>0) zoneT-=dt;
+  if(state!=='fight') zoneT=0; zoneCD-=dt; zoneTick(dt); const wdt=dt*zoneScale(); if(zoneT>0) zoneT-=dt;
   if(state==='fight'&&practice){
     tickFighter(player,dt); updatePlayer(dt); updateBullets(wdt,dt); updateThrows(wdt); updateZones(wdt); if(prac.dodge) updateDrill(wdt); else updateTargets(wdt);
     if(player.hp<player.maxHp) player.hp=Math.min(player.maxHp,Math.max(1,player.hp+40*dt));   // 練習中は倒れない
@@ -5001,7 +5036,7 @@ function render(){
   const wantAds=rightDown&&state==='fight'&&p.hp>0&&p.slot===0;
   adsAmt+=((wantAds?1:0)-adsAmt)*Math.min(1,1/60*14);
   killPunch=Math.max(0,killPunch-1/60*1.5);
-  const targetFov=75+((wp.name==='スナイパー'?20:55)-75)*adsAmt+(p.slideFov||0)*9*(1-adsAmt)+(p.dashT>0?(p.dodgeT>0?4:10):0)-killPunch*12;
+  const targetFov=75+((wp.name==='スナイパー'?20:55)-75)*adsAmt+(p.slideFov||0)*9*(1-adsAmt)+(p.dashT>0?(p.dodgeT>0?4:10):0)-killPunch*12-Math.sin(Math.min(1,1-zonePunch)*Math.PI)*zonePunch*30;   // ゾーンに入った瞬間にぐっと寄る
   if(Math.abs(camera.fov-targetFov)>0.01){camera.fov+= (targetFov-camera.fov)*0.5; camera.updateProjectionMatrix();}
   const bob=Math.sin(bobT)*0.035*(1-adsAmt*0.8);
   const dc=dodgeCam(p), dk=1-tpsAmt*(1-adsAmt); dc.dip*=dk; dc.roll*=dk;   // 回避中はカメラを下げて少し傾ける（一人称のときだけ）
@@ -5046,7 +5081,8 @@ function render(){
   else { boomSprite.visible=false; boomLight.intensity=0; }
   flashMesh.visible=flashT>0; flashMesh.rotation.z=Math.random()*6; flashLight.intensity=flashT>0?6:0;
   updatePlayerBody(p,tw);
-  { const zf=document.getElementById('zoneFx'), o=zoneT>0?String(clamp(zoneT/0.35,0,1)):'0'; if(zf.style.opacity!==o) zf.style.opacity=o; }   // ゾーン中は画面のふちが青く光る
+  { const zf=document.getElementById('zoneFx'), o=zoneT>0?String(clamp(zoneT/0.35,0,1)):'0'; if(zf.style.opacity!==o) zf.style.opacity=o;   // ゾーン中は画面のふちが青く光る
+    const fl=zoneT>0?'saturate(.45) contrast(1.18) brightness(1.06) hue-rotate(-8deg)':''; if(cvs.style.filter!==fl) cvs.style.filter=fl; }   // 色を抜いて青白く
   // ライバル
   const rm=rivalModel; rm.root.position.set(rival.x,rival.y,rival.z); rm.root.rotation.y=-rival.angle;
   rm.root.visible=!inMenu()&&!practice;
