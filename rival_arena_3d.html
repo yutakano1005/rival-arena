@@ -252,6 +252,34 @@
   .dodgeTxt.foe{top:40%;font-size:22px;color:#ffb347;text-shadow:0 0 8px #ff7a1a,0 2px 3px #000}
   .dodgeTxt.zone{font-size:30px;color:#e6fbff;text-shadow:0 0 12px #4cc9f0,0 0 24px #4cc9f0,0 2px 3px #000;animation-duration:.9s}
   .dodgeTxt.counter{top:44%;font-size:28px;color:#ffe066;text-shadow:0 0 10px #ff9f1a,0 2px 3px #000}
+  .justSwipe{position:fixed;inset:0;pointer-events:none;z-index:31;
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 9px,rgba(190,245,255,.55) 9px 11px,rgba(0,0,0,0) 11px 23px),linear-gradient(90deg,rgba(120,220,255,0),rgba(200,250,255,.55) 50%,rgba(120,220,255,0));
+    -webkit-mask:linear-gradient(180deg,transparent,#000 25%,#000 75%,transparent);mask:linear-gradient(180deg,transparent,#000 25%,#000 75%,transparent)}
+  .justSwipe.r{animation:swipeR .42s cubic-bezier(.2,.8,.3,1) forwards}.justSwipe.l{animation:swipeL .42s cubic-bezier(.2,.8,.3,1) forwards}
+  @keyframes swipeR{0%{opacity:1;transform:translateX(-60%) scaleX(.6)}100%{opacity:0;transform:translateX(60%) scaleX(1.4)}}
+  @keyframes swipeL{0%{opacity:1;transform:translateX(60%) scaleX(.6)}100%{opacity:0;transform:translateX(-60%) scaleX(1.4)}}
+  .justVig{position:fixed;inset:0;pointer-events:none;z-index:30;box-shadow:inset 0 0 120px 30px rgba(120,230,255,.75);animation:zoneFlash .55s ease-out forwards}
+  .justTxt{position:fixed;left:50%;top:62%;transform:translate(-50%,-50%);pointer-events:none;z-index:32;text-align:center;white-space:nowrap;animation:justTxt 1.05s ease-out forwards}
+  .justTxt b{position:relative;display:block;font-size:54px;font-weight:900;font-style:italic;letter-spacing:3px;color:#f4fdff;text-shadow:0 0 12px #4cc9f0,0 0 30px #4cc9f0,0 3px 4px #000}
+  .justTxt b::before,.justTxt b::after{content:attr(data-t);position:absolute;left:0;top:0;width:100%;opacity:.8;mix-blend-mode:screen}
+  .justTxt b::before{color:#ff3b6b;animation:glitchA .5s steps(2) 2}
+  .justTxt b::after{color:#3bd5ff;animation:glitchB .5s steps(2) 2}
+  .justTxt small{display:block;font-size:22px;font-weight:900;color:#bff6ff;letter-spacing:6px;text-shadow:0 0 8px #4cc9f0,0 2px 3px #000}
+  @keyframes justTxt{0%{opacity:0;transform:translate(-50%,-50%) scale(1.8) skewX(-20deg)}10%{opacity:1;transform:translate(-50%,-50%) scale(1) skewX(-8deg)}
+    75%{opacity:1;transform:translate(-50%,-50%) scale(1.03) skewX(-8deg)}100%{opacity:0;transform:translate(-50%,-70%) scale(1.05) skewX(-8deg)}}
+  @keyframes glitchA{0%{transform:translate(-6px,2px)}50%{transform:translate(5px,-2px)}100%{transform:translate(0,0);opacity:0}}
+  @keyframes glitchB{0%{transform:translate(6px,-2px)}50%{transform:translate(-5px,2px)}100%{transform:translate(0,0);opacity:0}}
+  .ctrFlash{position:fixed;inset:0;pointer-events:none;z-index:31;background:radial-gradient(circle at center,rgba(255,255,240,.95) 0%,rgba(255,200,80,.7) 40%,rgba(255,110,20,.35) 75%,rgba(255,80,0,0) 100%);animation:zoneFlash .32s ease-out forwards}
+  .ctrLines{position:fixed;inset:-20%;pointer-events:none;z-index:30;
+    background:repeating-conic-gradient(from 3deg,rgba(255,220,120,.85) 0deg 1.6deg,rgba(0,0,0,0) 1.6deg 9deg);
+    -webkit-mask:radial-gradient(circle at center,transparent 18%,#000 55%);mask:radial-gradient(circle at center,transparent 18%,#000 55%);
+    animation:ctrLines .55s ease-out forwards}
+  @keyframes ctrLines{0%{opacity:1;transform:scale(1.25)}100%{opacity:0;transform:scale(1)}}
+  .ctrBig{position:fixed;left:50%;top:30%;pointer-events:none;z-index:32;font-size:84px;font-weight:900;font-style:italic;letter-spacing:4px;white-space:nowrap;
+    color:#fff3c4;-webkit-text-stroke:3px #b34700;text-shadow:0 0 16px #ff9f1a,0 0 40px #ff6a00,0 6px 8px #000;animation:ctrBig 1.05s cubic-bezier(.2,1.4,.4,1) forwards}
+  @keyframes ctrBig{0%{opacity:0;transform:translate(-50%,-50%) scale(3) rotate(-12deg)}12%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(-6deg)}
+    18%{transform:translate(-48%,-52%) scale(1.05) rotate(-6deg)}24%{transform:translate(-52%,-48%) scale(1) rotate(-6deg)}30%{transform:translate(-50%,-50%) scale(1) rotate(-6deg)}
+    80%{opacity:1;transform:translate(-50%,-50%) scale(1.04) rotate(-6deg)}100%{opacity:0;transform:translate(-50%,-62%) scale(1.1) rotate(-6deg)}}
   .zoneFlash{position:fixed;inset:0;pointer-events:none;z-index:31;background:radial-gradient(circle at center,#fff 0%,rgba(190,245,255,.9) 35%,rgba(76,201,240,.5) 70%,rgba(76,201,240,0) 100%);animation:zoneFlash .45s ease-out forwards}
   @keyframes zoneFlash{0%{opacity:1}100%{opacity:0}}
   .zoneLines{position:fixed;inset:-20%;pointer-events:none;z-index:30;
@@ -2568,7 +2596,7 @@ function buildVrmRival(L,parent){
         else if(e.slot===0&&e.firedT>0&&HANDGUN.has(e.weap.name)){ upN='fire'; }   // ピストルは前へ突き出して撃つ。ほかの銃は構えたまま（顔を銃に寄せる：下の cheek）
         else if(hitT>0){ upN='hit'; uloop=false; }
         lastSwing=e.slot===1?e.swingT:0;
-        if(dc) m.play('U',dc,dOpt);
+        if(dc&&!e.zoneAtk) m.play('U',dc,dOpt);
         else m.play('U',upN,{loop:uloop,speed:usp,restart:urst,fade:upN==='fire'?0.06:0.15});
       }
     } else { m.play('L','idle'); m.play('U','idle'); }
@@ -2577,7 +2605,7 @@ function buildVrmRival(L,parent){
     m.vrm.expressionManager?.setValue('blink',blink>0?Math.sin((1-blink/0.12)*Math.PI):0);
     m.mixer.update(dt);
     // 顔を狙う方向へ：動きのデータのままだと走るときなどに頭が下や横を向くので、背中・首・頭を少しずつ回して前（と上下の狙い）を向かせる
-    const alive=e&&e.hp>0&&!m.cur.F, dodging=e&&e.dodgeT>0, lw=alive&&!dodging&&!(e.slot===1&&e.swingT>0)?1:0;
+    const alive=e&&e.hp>0&&!m.cur.F, dodging=e&&e.dodgeT>0&&!e.zoneAtk, lw=alive&&!dodging&&!(e.slot===1&&e.swingT>0)?1:0;
     m.lookW=(m.lookW||0)+(lw-(m.lookW||0))*Math.min(1,dt*(dodging?20:8));
     // 銃を構えているとき（撃つ・待機・移動。リロード中は除く）：銃口を狙う所へ向け、左手を銃に添える
     const gw=alive&&!dodging&&e.slot===0&&!(e.reloadT>0)&&e.switchT<=0?1:0;
@@ -3171,6 +3199,35 @@ function zoneAutoAim(from,target){
 // 入った瞬間の 0.12 秒はほぼ止まる（ヒットストップ）
 function zoneScale(){ if(!(zoneT>0)||isOnline()) return 1; if(ZONE_T-zoneT<0.12) return 0.04; return ZONE_SLOW+(1-ZONE_SLOW)*clamp(1-zoneT/0.35,0,1); }
 let zonePunch=0, zoneBeatT=0;
+// ジャスト回避の演出（ゾーンに入れないとき＝待ち時間中でも毎回出す）
+// よける前の場所に青く光る残像が残って消える・よけた弾の所で光がはじける・画面を横切る光の筋・ブレる「JUST DODGE!」
+const ghosts=[], GHOST_GEO=new THREE.CapsuleGeometry(0.28,1.15,6,12);
+function justFx(src,bx,by,bz){
+  const p=player; if(!p) return;
+  const gx=p.dodgeX0??p.x, gz=p.dodgeZ0??p.z, gy=p.dodgeY0??p.y;
+  // 残像：本体の形＋外側の光（加算合成でぼんやり光る）。少し横へ伸ばして、よけた方向へ流れて消える
+  for(const [r,op] of [[1,0.55],[1.35,0.25]]){ const m=new THREE.Mesh(GHOST_GEO,new THREE.MeshBasicMaterial({color:0x7bdff2,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+    m.position.set(gx,gy+0.88,gz); m.scale.set(r,1,r); m.rotation.y=Math.atan2(p.ddx||0,p.ddz||0); scene.add(m); ghosts.push({m,t:0,life:0.6,op,vx:(p.ddx||0)*0.8,vz:(p.ddz||0)*0.8}); }
+  // 地面に広がる光の輪
+  { const m=new THREE.Mesh(new THREE.RingGeometry(0.3,0.45,40),new THREE.MeshBasicMaterial({color:0xa0f0ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
+    m.rotation.x=-Math.PI/2; m.position.set(gx,gy+0.05,gz); scene.add(m); ghosts.push({m,t:0,life:0.5,op:0.9,ring:true}); }
+  emit(gx,gy+1,gz,0x7bdff2,30,4,0); emit(gx,gy+1,gz,0xffffff,12,2.5,0);
+  if(bx!=null){ emit(bx,by,bz,0xa0f0ff,25,6,1); emitSparks(new THREE.Vector3(bx,by,bz),new THREE.Vector3(0,1,0),18,8,Math.PI,0xbff6ff,{grav:2,life:0.3,len:0.04,bright:3}); }
+  // 画面
+  const side=(()=>{ const cx=Math.cos(yaw), cz=-Math.sin(yaw); return ((p.ddx||0)*cx+(p.ddz||0)*cz)>=0?'r':'l'; })();   // 画面上でよけた向き
+  const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
+  mk('justSwipe '+side,'',450); mk('justVig','',600);
+  mk('justTxt','<b data-t="JUST DODGE!">JUST DODGE!</b><small>ジャスト回避！</small>',1100);
+  shake=Math.max(shake,0.2);
+  // 音：「シュィン」と抜ける音＋澄んだ「チーン」
+  if(actx){ noise('highpass',2000,9000,0.22,0.22,0.8); beep(700,0.25,0.1,'sine',0,2800); beep(3136,0.6,0.07,'sine',0.04); beep(4699,0.5,0.04,'sine',0.07); beep(6272,0.4,0.025,'sine',0.1); }
+}
+function updateGhosts(dt){
+  for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.t+=dt; const u=g.t/g.life;
+    if(u>=1){ scene.remove(g.m); g.m.material.dispose(); if(g.ring) g.m.geometry.dispose(); ghosts.splice(i,1); continue; }
+    g.m.material.opacity=g.op*(1-u)*(1-u);
+    if(g.ring) g.m.scale.setScalar(1+u*7);
+    else { g.m.position.x+=g.vx*dt; g.m.position.z+=g.vz*dt; g.m.scale.y=1+u*0.15; } } }
 function startZone(){
   if(zoneCD>0||state!=='fight') return false;
   zoneT=ZONE_T; zoneCD=ZONE_CD; zoneAuto=true; zonePunch=1; zoneBeatT=0.35; shake=Math.max(shake,0.35);
@@ -3178,7 +3235,6 @@ function startZone(){
   const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
   mk('zoneFlash','',500); mk('zoneLines','',900); mk('zoneRing','',700);
   mk('zoneBig','<span>Z</span><span>O</span><span>N</span><span>E</span>',1300);
-  mk('dodgeTxt zone','ジャスト回避！',1000);
   // 自分のまわりに光の粒がはじける
   if(player){ emit(player.x,player.y+1.1,player.z,0x7bdff2,45,7,0); emit(player.x,player.y+1.1,player.z,0xffffff,20,4,0); }
   // 音：ドンッという低い衝撃 → 吸い込まれるような音 → キラキラ
@@ -3187,11 +3243,21 @@ function startZone(){
     [1760,2637,3520,4186].forEach((f,i)=>beep(f,0.35,0.035,'sine',0.12+i*0.06)); }
   return true; }
 // ゾーン中のドクン、ドクンという鼓動（update から呼ぶ）
-function zoneTick(dt){ zonePunch=Math.max(0,zonePunch-dt*2.2);
+function zoneTick(dt){ zonePunch=Math.max(0,zonePunch-dt*2.2); updateGhosts(dt);
   if(zoneT>0&&actx){ zoneBeatT-=dt; if(zoneBeatT<=0){ zoneBeatT=0.6; beep(60,0.14,0.32,'sine',0,38); beep(55,0.12,0.22,'sine',0.17,35); } } }
-function counterFx(){ const now=performance.now(); if(now-lastCounter<250) return; lastCounter=now;
-  const el=document.createElement('div'); el.className='dodgeTxt counter'; el.textContent='カウンター！'; document.body.appendChild(el); setTimeout(()=>el.remove(),700);
-  if(actx){ beep(500,0.12,0.12,'square',0,1400); noise('bandpass',2500,1200,0.12,0.15,0.8); } }
+// カウンターが当たった：一瞬止まる・金色の閃光と集中線・「COUNTER!!」・当たった所で火花が爆発・重い打撃音
+let hitStopT=0;
+function counterFx(tg){ const now=performance.now(); if(now-lastCounter<250) return; lastCounter=now;
+  const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
+  mk('ctrFlash','',350); mk('ctrLines','',600); mk('ctrBig','COUNTER!!',1100);
+  if(!isOnline()) hitStopT=0.09;   // ヒットストップ（オンラインは相手の時間を止められないので無し）
+  shake=Math.max(shake,0.5); killPunch=Math.max(killPunch,0.7); kick=Math.min(0.15,kick+0.05);
+  if(tg){ const y=tg.y+(tg.height||1.8)*0.6, P=new THREE.Vector3(tg.x,y,tg.z), up=new THREE.Vector3(0,1,0);
+    emit(tg.x,y,tg.z,0xffd24a,50,9,4); emit(tg.x,y,tg.z,0xff7a1a,35,6,3); emit(tg.x,y,tg.z,0xffffff,20,5,2);
+    emitSparks(P,up,40,14,Math.PI,0xffc040,{grav:9,life:0.4,len:0.05,bright:3});
+    boomSprite.material.map=flashTex; boomLight.color.set(0xffb040); boomSprite.position.copy(P); boomLight.position.copy(P); boomT=0.25; boomR=1.6; }
+  if(actx){ beep(90,0.35,0.4,'square',0,30); noise('lowpass',3000,120,0.35,0.45,1); noise('bandpass',4000,1500,0.15,0.25,1.5);
+    beep(1320,0.5,0.06,'triangle',0.03); beep(1980,0.5,0.05,'triangle',0.06); beep(2640,0.6,0.04,'sine',0.09); } }
 // 視点：'fps' 一人称 / 'tps' 肩越し（右クリックで覗く間は一人称）。決着のときは自分のまわりを回るカメラ
 let viewMode='fps'; try{ if(localStorage.getItem('rivalArenaView')==='tps') viewMode='tps'; }catch(e){}
 let tpsAmt=viewMode==='tps'?1:0, endCam=0, endCamA=0, playerModel=null, playerLookKey='', pModelState={lx:null,lz:null,walk:0};
@@ -3565,7 +3631,7 @@ function onNet(m){
       if(m.k==='medkit') rival.healT=0.9;
       else if(m.k==='pad') addZone({type:'pad',x:m.x,z:m.z,r:0.75,t:Infinity,owner:rival});
       else spawnThrow(rival,UTILS.find(u=>u.kind===m.k)||rival.util,...m.o,...m.v); } break;
-    case 'h': if(isOnline()){ hitmarkT=0.18; $('hitmark').style.color=m.hd?'#ff3355':'#fff'; beep(m.hd?1500:1100,0.05,0.12,'triangle'); sfxHit(!!m.hd); dmgNumber(m.a,!!m.hd,rival); if(m.ct) counterFx();
+    case 'h': if(isOnline()){ hitmarkT=0.18; $('hitmark').style.color=m.hd?'#ff3355':'#fff'; beep(m.hd?1500:1100,0.05,0.12,'triangle'); sfxHit(!!m.hd); dmgNumber(m.a,!!m.hd,rival); if(m.ct) counterFx(rival);
       if(player.lifesteal&&player.hp>0) player.hp=Math.min(player.maxHp,player.hp+m.a*player.lifesteal); } break;
     case 'dead': if(net.role==='host'&&isOnline()){ net.dead.guest={head:!!m.hd}; if(net.deadT==null) net.deadT=0.25; } break;
     case 'rend': if(net.role==='guest'&&isOnline()) netRoundEnd(m.hd,m.gd,m.hh,m.gh); break;
@@ -4047,7 +4113,8 @@ function spawnBullet(owner,ox,oy,oz,dx,dy,dz,wp,ctr=false){   // ctr：ゾーン
 function fire(e){
   const wp=e.weap;
   if(e.reloadT>0||e.cool>0||e.burstLeft>0) return;
-  if(e.dodgeT>0&&e.dodgeKind==='roll'&&!(e===player&&zoneT>0)) return;   // 転がっている間は撃てない（ゾーン中の自分だけは回避しながら撃てる）
+  // 転がっている間は撃てない（ゾーン中の自分だけは回避しながら撃てる）。ゾーン前に押した分は少し覚えておき、ジャスト回避が決まったらすぐ撃つ
+  if(e.dodgeT>0&&e.dodgeKind==='roll'&&!(e===player&&zoneT>0)){ if(e===player) e.atkBuf=0.4; return; }
   if(e.ammo<=0){ if(e===player) sfxTrigger(true); startReload(e); return; }
   e.cool=wp.rate*(e.infT>0?0.7:1);
   if(wp.burst){ e.burstLeft=wp.burst-1; e.burstT=0.07; }
@@ -4199,7 +4266,7 @@ function tryStep(e,dx,dz,kind='roll'){
   if(e.hp<=0||e.healT>0||(e.stepCD||0)>0||(!late&&(!e.onGround||e.dashT>0||e.dodgeT>0))) return false;
   const l=Math.hypot(dx,dz); if(l<0.01) return false;
   const D=DODGE[kind]||DODGE.roll;
-  e.ddx=dx/l; e.ddz=dz/l; e.dashT=D.dur; e.dodgeT=D.dur; e.dodgeDur=D.dur; e.dodgeKind=kind; e.dodgeDist=D.dist;
+  e.ddx=dx/l; e.ddz=dz/l; e.dashT=D.dur; e.dodgeT=D.dur; e.dodgeDur=D.dur; e.dodgeKind=kind; e.dodgeDist=D.dist; e.dodgeX0=e.x; e.dodgeZ0=e.z; e.dodgeY0=e.y;
   e.stepCD=e===player?D.dur*0.7:D.cd+D.dur; e.slideT=0; e.iframeT=D.iframe;
   if(D.vy){ e.vy=D.vy; e.onGround=false; e.airT=1; }   // 後ろ跳び：少し浮く
   if(e===player) netSend({t:'dg',k:kind,x:+e.ddx.toFixed(3),z:+e.ddz.toFixed(3)});
@@ -4474,6 +4541,7 @@ function updatePlayer(dt){
   if(l>0&&p.onGround&&p.slideT<=0){ const ob=bobT; bobT+=dt*(sp>6?13:10);
     if(Math.floor(ob/Math.PI)!==Math.floor(bobT/Math.PI)) sfxStep(p,ducking?0.05:sp>6?0.16:0.1,p.y>0.5); }
   if(p.chargeT>=0&&!mouseDown) chargeEnd(p,true);   // チャージ式：離した瞬間に発射（満タン前なら不発）
+  if(p.atkBuf>0){ p.atkBuf-=dt; if(zoneT>0&&p.slot===0&&p.switchT<=0&&!p.weap.charge){ p.atkBuf=0; fire(p); } }   // 回避中に押した攻撃（ジャスト回避が決まったら出す）
   if(p.switchT<=0&&p.healT<=0){
     if(p.slot===0&&p.weap.charge){ if(mouseDown&&!(p.chargeT>=0)){ if(canCharge(p)) chargeStart(p); else if(clickQ) fire(p); } }   // 弾切れならリロード
     else if(p.slot===0&&mouseDown) fire(p);
@@ -4611,12 +4679,12 @@ function damage(e,amt,head,silent=false,src=null,ctr=false){   // ctr：ゾー�
       // ジャスト回避：回避を始めてから JUST_WIN 秒以内に当たったときだけ（それより後は、ふつうの回避）
       const just=src&&src!==e&&e.dodgeT>0&&e.dodgeDur-e.dodgeT<=JUST_WIN;
       if(practice&&prac.dodge&&src===rival){ if(just) drillDodge(); else prac.ok++; }
-      if(!(just&&startZone())) dodgeFx(); } else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
+      if(just){ justFx(src,e.x,e.y+1.1,e.z); startZone(); } else dodgeFx(); } else if(src===player&&!e.isTarget) dodgeFx(true); return; }   // ステップ直後のごく短い無敵時間
   if(e===player&&practice&&prac.dodge&&src===rival) drillHit();   // 回避練習：砲台の弾に当たった
   if(e===player&&src===rival&&!isOnline()) amt*=diff().dmg;
   // ゾーン中の攻撃はカウンター（オンラインでは相手から届いた弾・近接の印 ctr で、自分が受けるダメージを増やす）
   const counter=src&&src!==e&&(ctr||(src===player&&zoneT>0));
-  if(counter){ amt*=COUNTER_MUL; if(!silent&&src===player) counterFx(); }
+  if(counter){ amt*=COUNTER_MUL; if(!silent&&src===player) counterFx(e); }
   if(src&&src!==e) amt*=src.dmgMul*(src.boostT>0?1.6:1)*(src.lastStand&&src.hp<src.maxHp*0.35?1+src.lastStand:1);
   amt*=e.armor;
   if(e.shield>0){ const a=Math.min(e.shield,amt*0.7); e.shield-=a; amt-=a; }   // アーマーが7割を肩代わり
@@ -5166,6 +5234,7 @@ function updatePlayerBody(p,tw){
   pm.root.position.set(p.x,p.y,p.z); pm.root.rotation.y=-pa;
   if(S.lx!=null) S.walk+=Math.hypot(p.x-S.lx,p.z-S.lz)*3.2; S.lx=p.x; S.lz=p.z;
   const pe=Object.create(p); pe.angle=pa; pe.aimPitch=pitch;
+  pe.zoneAtk=zoneT>0&&p.dodgeT>0&&(p.firedT>0||(p.slot===1&&p.swingT>0)||mouseDown);   // ゾーン中に回避しながら攻撃：上半身は構え・振りを見せる
   // 銃口を向ける所：肩越しなら画面の真ん中が指す所、それ以外は見ている方向の遠く
   { const fd=new THREE.Vector3(Math.cos(pa)*Math.cos(pitch),Math.sin(pitch),Math.sin(pa)*Math.cos(pitch)); pe.aimTarget=tpsShooting()?tpsAimPoint(camera.getWorldDirection(new THREE.Vector3())):tpsEye.clone().addScaledVector(fd,30); }
   if(pm.isVrm){ pm.driven=true; pm.update(frameDt,pe); }
@@ -5181,6 +5250,7 @@ function updatePlayerBody(p,tw){
 let last=performance.now(), frameDt=0;
 function loop(now){ const dt=Math.min(0.05,(now-last)/1000); last=now;
   let sc=1; if(slowT>0&&!paused){ slowT-=dt; sc=0.28+0.72*clamp(1-slowT/1.1,0,1)**3; }   // 決着の瞬間だけスロー
+  if(hitStopT>0&&!paused){ hitStopT-=dt; sc*=0.03; }   // カウンターのヒットストップ
   frameDt=dt*sc; update(dt*sc); render(); palmAmbient(); requestAnimationFrame(loop); }
 // 待ち時間の環境音：手のひらで薬莢を転がす「チャリ…チャラ…」（録音をループ）。
 // ラウンド間の強化カード選択と、オンラインで相手を待つ画面だけで小さく鳴らす
