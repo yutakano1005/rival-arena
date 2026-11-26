@@ -253,51 +253,40 @@
   .dodgeTxt.zone{font-size:30px;color:#e6fbff;text-shadow:0 0 12px #4cc9f0,0 0 24px #4cc9f0,0 2px 3px #000;animation-duration:.9s}
   .dodgeTxt.counter{top:44%;font-size:28px;color:#ffe066;text-shadow:0 0 10px #ff9f1a,0 2px 3px #000}
   .justSwipe{position:fixed;inset:0;pointer-events:none;z-index:31;
-    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 9px,rgba(190,245,255,.55) 9px 11px,rgba(0,0,0,0) 11px 23px),linear-gradient(90deg,rgba(120,220,255,0),rgba(200,250,255,.55) 50%,rgba(120,220,255,0));
-    -webkit-mask:linear-gradient(180deg,transparent,#000 25%,#000 75%,transparent);mask:linear-gradient(180deg,transparent,#000 25%,#000 75%,transparent)}
+    background:repeating-linear-gradient(0deg,rgba(0,0,0,0) 0 9px,rgba(190,245,255,.55) 9px 11px,rgba(0,0,0,0) 11px 23px),linear-gradient(90deg,rgba(120,220,255,0),rgba(200,250,255,.55) 50%,rgba(120,220,255,0));}
   .justSwipe.r{animation:swipeR .42s cubic-bezier(.2,.8,.3,1) forwards}.justSwipe.l{animation:swipeL .42s cubic-bezier(.2,.8,.3,1) forwards}
   @keyframes swipeR{0%{opacity:1;transform:translateX(-60%) scaleX(.6)}100%{opacity:0;transform:translateX(60%) scaleX(1.4)}}
   @keyframes swipeL{0%{opacity:1;transform:translateX(60%) scaleX(.6)}100%{opacity:0;transform:translateX(-60%) scaleX(1.4)}}
   .justVig{position:fixed;inset:0;pointer-events:none;z-index:30;box-shadow:inset 0 0 120px 30px rgba(120,230,255,.75);animation:zoneFlash .55s ease-out forwards}
-  .justTxt{position:fixed;left:50%;top:62%;transform:translate(-50%,-50%);pointer-events:none;z-index:32;text-align:center;white-space:nowrap;animation:justTxt 1.05s ease-out forwards}
-  .justTxt b{position:relative;display:block;font-size:54px;font-weight:900;font-style:italic;letter-spacing:3px;color:#f4fdff;text-shadow:0 0 12px #4cc9f0,0 0 30px #4cc9f0,0 3px 4px #000}
-  .justTxt b::before,.justTxt b::after{content:attr(data-t);position:absolute;left:0;top:0;width:100%;opacity:.8;mix-blend-mode:screen}
-  .justTxt b::before{color:#ff3b6b;animation:glitchA .5s steps(2) 2}
-  .justTxt b::after{color:#3bd5ff;animation:glitchB .5s steps(2) 2}
+  .justTxt{position:fixed;left:50%;top:62%;transform:translate(-50%,-50%);pointer-events:none;z-index:32;text-align:center;white-space:nowrap;will-change:transform,opacity;animation:justTxt 1.05s ease-out forwards}
+  .justTxt b{position:relative;display:block;font-size:54px;font-weight:900;font-style:italic;letter-spacing:3px;color:#f4fdff;text-shadow:-3px 0 rgba(255,59,107,.85),3px 0 rgba(59,213,255,.85),0 0 14px #4cc9f0,0 3px 4px #000}
   .justTxt small{display:block;font-size:22px;font-weight:900;color:#bff6ff;letter-spacing:6px;text-shadow:0 0 8px #4cc9f0,0 2px 3px #000}
   @keyframes justTxt{0%{opacity:0;transform:translate(-50%,-50%) scale(1.8) skewX(-20deg)}10%{opacity:1;transform:translate(-50%,-50%) scale(1) skewX(-8deg)}
     75%{opacity:1;transform:translate(-50%,-50%) scale(1.03) skewX(-8deg)}100%{opacity:0;transform:translate(-50%,-70%) scale(1.05) skewX(-8deg)}}
-  @keyframes glitchA{0%{transform:translate(-6px,2px)}50%{transform:translate(5px,-2px)}100%{transform:translate(0,0);opacity:0}}
-  @keyframes glitchB{0%{transform:translate(6px,-2px)}50%{transform:translate(-5px,2px)}100%{transform:translate(0,0);opacity:0}}
   .ctrFlash{position:fixed;inset:0;pointer-events:none;z-index:31;background:radial-gradient(circle at center,rgba(255,255,240,.95) 0%,rgba(255,200,80,.7) 40%,rgba(255,110,20,.35) 75%,rgba(255,80,0,0) 100%);animation:zoneFlash .32s ease-out forwards}
-  .ctrLines{position:fixed;inset:-20%;pointer-events:none;z-index:30;
-    background:repeating-conic-gradient(from 3deg,rgba(255,220,120,.85) 0deg 1.6deg,rgba(0,0,0,0) 1.6deg 9deg);
-    -webkit-mask:radial-gradient(circle at center,transparent 18%,#000 55%);mask:radial-gradient(circle at center,transparent 18%,#000 55%);
-    animation:ctrLines .55s ease-out forwards}
-  @keyframes ctrLines{0%{opacity:1;transform:scale(1.25)}100%{opacity:0;transform:scale(1)}}
+  .ctrLines{position:fixed;inset:0;pointer-events:none;z-index:30;
+    background:repeating-conic-gradient(from 3deg,rgba(255,220,120,.5) 0deg 1.6deg,rgba(0,0,0,0) 1.6deg 9deg);
+    will-change:transform,opacity;animation:ctrLines .55s ease-out forwards}
+  @keyframes ctrLines{0%{opacity:1;transform:scale(1.1)}100%{opacity:0;transform:scale(1)}}
   .ctrBig{position:fixed;left:50%;top:30%;pointer-events:none;z-index:32;font-size:84px;font-weight:900;font-style:italic;letter-spacing:4px;white-space:nowrap;
-    color:#fff3c4;-webkit-text-stroke:3px #b34700;text-shadow:0 0 16px #ff9f1a,0 0 40px #ff6a00,0 6px 8px #000;animation:ctrBig 1.05s cubic-bezier(.2,1.4,.4,1) forwards}
+    color:#fff3c4;-webkit-text-stroke:3px #b34700;text-shadow:0 0 16px #ff9f1a,0 4px 6px #000;will-change:transform,opacity;animation:ctrBig 1.05s cubic-bezier(.2,1.4,.4,1) forwards}
   @keyframes ctrBig{0%{opacity:0;transform:translate(-50%,-50%) scale(3) rotate(-12deg)}12%{opacity:1;transform:translate(-50%,-50%) scale(.9) rotate(-6deg)}
     18%{transform:translate(-48%,-52%) scale(1.05) rotate(-6deg)}24%{transform:translate(-52%,-48%) scale(1) rotate(-6deg)}30%{transform:translate(-50%,-50%) scale(1) rotate(-6deg)}
     80%{opacity:1;transform:translate(-50%,-50%) scale(1.04) rotate(-6deg)}100%{opacity:0;transform:translate(-50%,-62%) scale(1.1) rotate(-6deg)}}
   .zoneFlash{position:fixed;inset:0;pointer-events:none;z-index:31;background:radial-gradient(circle at center,#fff 0%,rgba(190,245,255,.9) 35%,rgba(76,201,240,.5) 70%,rgba(76,201,240,0) 100%);animation:zoneFlash .45s ease-out forwards}
   @keyframes zoneFlash{0%{opacity:1}100%{opacity:0}}
-  .zoneLines{position:fixed;inset:-20%;pointer-events:none;z-index:30;
-    background:repeating-conic-gradient(from 0deg,rgba(220,250,255,.75) 0deg 1.2deg,rgba(0,0,0,0) 1.2deg 7deg);
-    -webkit-mask:radial-gradient(circle at center,transparent 22%,#000 60%);mask:radial-gradient(circle at center,transparent 22%,#000 60%);
-    animation:zoneLines .85s ease-out forwards}
-  @keyframes zoneLines{0%{opacity:0;transform:scale(1.4) rotate(0)}15%{opacity:1}100%{opacity:0;transform:scale(1) rotate(6deg)}}
-  .zoneRing{position:fixed;left:50%;top:50%;width:40px;height:40px;margin:-20px 0 0 -20px;border-radius:50%;pointer-events:none;z-index:31;
-    border:6px solid rgba(160,240,255,.95);box-shadow:0 0 30px #4cc9f0,inset 0 0 30px #4cc9f0;animation:zoneRing .65s cubic-bezier(.1,.7,.3,1) forwards}
-  @keyframes zoneRing{0%{opacity:1;transform:scale(.2)}100%{opacity:0;transform:scale(40);border-width:1px}}
+  .zoneLines{position:fixed;inset:0;pointer-events:none;z-index:30;
+    background:repeating-conic-gradient(from 0deg,rgba(220,250,255,.45) 0deg 1.2deg,rgba(0,0,0,0) 1.2deg 7deg);
+    will-change:transform,opacity;animation:zoneLines .85s ease-out forwards}
+  @keyframes zoneLines{0%{opacity:0;transform:scale(1.15)}15%{opacity:1}100%{opacity:0;transform:scale(1)}}
+  .zoneRing{position:fixed;left:50%;top:50%;width:150vmax;height:150vmax;margin:-75vmax 0 0 -75vmax;border-radius:50%;pointer-events:none;z-index:31;
+    border:3px solid rgba(160,240,255,.95);box-shadow:0 0 6px #4cc9f0;will-change:transform,opacity;animation:zoneRing .65s cubic-bezier(.1,.7,.3,1) forwards}
+  @keyframes zoneRing{0%{opacity:1;transform:scale(.005)}100%{opacity:0;transform:scale(1)}}
   .zoneBig{position:fixed;left:50%;top:36%;transform:translate(-50%,-50%);pointer-events:none;z-index:32;font-size:120px;font-weight:900;font-style:italic;
-    color:#f2fdff;text-shadow:0 0 18px #4cc9f0,0 0 40px #4cc9f0,0 0 80px #1a7fd0,0 4px 6px #000;white-space:nowrap;animation:zoneBig 1.25s ease-out forwards}
-  .zoneBig span{display:inline-block;animation:zoneLetter .35s cubic-bezier(.2,1.6,.4,1) backwards}
-  .zoneBig span:nth-child(2){animation-delay:.05s}.zoneBig span:nth-child(3){animation-delay:.1s}.zoneBig span:nth-child(4){animation-delay:.15s}
-  @keyframes zoneLetter{0%{opacity:0;transform:translateY(-40px) scale(2.2)}100%{opacity:1;transform:none}}
-  @keyframes zoneBig{0%{letter-spacing:40px}25%{letter-spacing:14px}75%{opacity:1;letter-spacing:18px}100%{opacity:0;letter-spacing:60px}}
+    color:#f2fdff;letter-spacing:16px;text-shadow:0 0 18px #4cc9f0,0 3px 5px #000;white-space:nowrap;will-change:transform,opacity;animation:zoneBig 1.25s ease-out forwards}
+  @keyframes zoneBig{0%{opacity:0;transform:translate(-50%,-50%) scale(2.4)}12%{opacity:1;transform:translate(-50%,-50%) scale(.92)}22%{transform:translate(-50%,-50%) scale(1.03)}30%{transform:translate(-50%,-50%) scale(1)}75%{opacity:1;transform:translate(-50%,-50%) scale(1.04)}100%{opacity:0;transform:translate(-50%,-50%) scaleX(1.5) scaleY(1.1)}}
   #zoneFx{position:fixed;inset:0;pointer-events:none;z-index:5;opacity:0;transition:opacity .15s;
-    background:radial-gradient(ellipse at center,rgba(0,0,0,0) 45%,rgba(40,140,200,.28) 75%,rgba(10,40,90,.6) 100%);box-shadow:inset 0 0 60px rgba(120,220,255,.5)}
+    background:radial-gradient(ellipse at center,rgba(60,120,170,.16) 0%,rgba(60,130,190,.2) 45%,rgba(40,140,200,.32) 75%,rgba(10,40,90,.6) 100%);will-change:opacity;box-shadow:inset 0 0 60px rgba(120,220,255,.5)}
   @keyframes dodgeUp{0%{opacity:0;transform:translate(-50%,8px) scale(.8)}20%{opacity:1;transform:translate(-50%,0) scale(1.1)}100%{opacity:0;transform:translate(-50%,-26px) scale(1)}}
   .kbrow b{min-width:66px;text-align:center;padding:3px 8px;border-radius:6px;background:#2a3346;color:#ffd166;font-size:14px;cursor:pointer;border:2px solid transparent}
   .kbrow b:hover{border-color:#5a6a90}
@@ -492,7 +481,7 @@ const UTILS=[
  {name:'火炎瓶',rar:'common',kind:'molotov',count:2,speed:15,desc:'割れた場所が5秒間燃え続ける'},
  {name:'フラッシュバン',rar:'common',kind:'flash',count:2,speed:16,fuse:1.4,desc:'見た者の目をくらませる。自分も見ないように'},
  {name:'スモーク',rar:'common',kind:'smoke',count:2,speed:14,fuse:1.2,desc:'9秒間、視線をさえぎる煙の壁を作る'},
- {name:'回復キット',rar:'gold',kind:'medkit',count:2,desc:'使うとHPが50回復（使用中は攻撃できない）'},
+ {name:'回復キット',rar:'gold',kind:'medkit',count:2,desc:'使うとHPが165回復（使用中は攻撃できない）'},
  {name:'ジャンプパッド',rar:'gold',kind:'pad',count:2,desc:'目の前に設置。乗ると大ジャンプ'},
  {name:'地雷',rar:'purple',kind:'mine',count:2,speed:7,desc:'設置して、相手が近づくと爆発'},
 ];
@@ -3196,8 +3185,8 @@ function zoneAutoAim(from,target){
   const d=target.clone().sub(from).normalize(); yaw=Math.atan2(-d.x,-d.z); pitch=clamp(Math.asin(clamp(d.y,-1,1)),-1.5,1.5);
   zoneAuto=false; beep(1600,0.06,0.06,'square'); beep(2400,0.08,0.05,'square',0.05); return d; }
 // ゾーン中の時間の進み方（最後の0.35秒でふつうに戻す）
-// 入った瞬間の 0.12 秒はほぼ止まる（ヒットストップ）
-function zoneScale(){ if(!(zoneT>0)||isOnline()) return 1; if(ZONE_T-zoneT<0.12) return 0.04; return ZONE_SLOW+(1-ZONE_SLOW)*clamp(1-zoneT/0.35,0,1); }
+// 入った瞬間の 0.06 秒はほぼ止まる（ヒットストップ）
+function zoneScale(){ if(!(zoneT>0)||isOnline()) return 1; if(ZONE_T-zoneT<0.06) return 0.15; return ZONE_SLOW+(1-ZONE_SLOW)*clamp(1-zoneT/0.35,0,1); }
 let zonePunch=0, zoneBeatT=0;
 // ジャスト回避の演出（ゾーンに入れないとき＝待ち時間中でも毎回出す）
 // よける前の場所に青く光る残像が残って消える・よけた弾の所で光がはじける・画面を横切る光の筋・ブレる「JUST DODGE!」
@@ -3206,7 +3195,8 @@ function justFx(src,bx,by,bz){
   const p=player; if(!p) return;
   const gx=p.dodgeX0??p.x, gz=p.dodgeZ0??p.z, gy=p.dodgeY0??p.y;
   // 残像：本体の形＋外側の光（加算合成でぼんやり光る）。少し横へ伸ばして、よけた方向へ流れて消える
-  for(const [r,op] of [[1,0.55],[1.35,0.25]]){ const m=new THREE.Mesh(GHOST_GEO,new THREE.MeshBasicMaterial({color:0x7bdff2,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
+  // 一人称では残像がカメラに重なって画面が重くなるので、体が見えている（肩越し）ときだけ出す
+  if(playerModel&&playerModel.root.visible) for(const [r,op] of [[1,0.55],[1.35,0.25]]){ const m=new THREE.Mesh(GHOST_GEO,new THREE.MeshBasicMaterial({color:0x7bdff2,transparent:true,opacity:op,blending:THREE.AdditiveBlending,depthWrite:false}));
     m.position.set(gx,gy+0.88,gz); m.scale.set(r,1,r); m.rotation.y=Math.atan2(p.ddx||0,p.ddz||0); scene.add(m); ghosts.push({m,t:0,life:0.6,op,vx:(p.ddx||0)*0.8,vz:(p.ddz||0)*0.8}); }
   // 地面に広がる光の輪
   { const m=new THREE.Mesh(new THREE.RingGeometry(0.3,0.45,40),new THREE.MeshBasicMaterial({color:0xa0f0ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide}));
@@ -3216,12 +3206,28 @@ function justFx(src,bx,by,bz){
   // 画面
   const side=(()=>{ const cx=Math.cos(yaw), cz=-Math.sin(yaw); return ((p.ddx||0)*cx+(p.ddz||0)*cz)>=0?'r':'l'; })();   // 画面上でよけた向き
   const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
-  mk('justSwipe '+side,'',450); mk('justVig','',600);
+  if(zoneCD>0||!(state==='fight')){ mk('justSwipe '+side,'',450); mk('justVig','',600); }   // ゾーンに入るときはゾーンの閃光と重なるので省く（重さ対策）
   mk('justTxt','<b data-t="JUST DODGE!">JUST DODGE!</b><small>ジャスト回避！</small>',1100);
   shake=Math.max(shake,0.2);
   // 音：「シュィン」と抜ける音＋澄んだ「チーン」
   if(actx){ noise('highpass',2000,9000,0.22,0.22,0.8); beep(700,0.25,0.1,'sine',0,2800); beep(3136,0.6,0.07,'sine',0.04); beep(4699,0.5,0.04,'sine',0.07); beep(6272,0.4,0.025,'sine',0.1); }
 }
+// 演出用の材質を最初に準備しておく（初めてのジャスト回避で、材質の準備のために画面が一瞬止まるのを防ぐ）
+function warmFx(){
+  try{ const tmp=[];
+    const add=m=>{ m.position.set(player?player.x:0,1,player?player.z:0); scene.add(m); tmp.push(m); };
+    add(new THREE.Mesh(GHOST_GEO,new THREE.MeshBasicMaterial({color:0x7bdff2,transparent:true,opacity:0.5,blending:THREE.AdditiveBlending,depthWrite:false})));
+    add(new THREE.Mesh(new THREE.RingGeometry(0.3,0.45,8),new THREE.MeshBasicMaterial({color:0xa0f0ff,transparent:true,opacity:0.9,blending:THREE.AdditiveBlending,depthWrite:false,side:THREE.DoubleSide})));
+    const bv=boomSprite.visible; boomSprite.visible=true;
+    renderer.compile(scene,camera);
+    boomSprite.visible=bv; for(const m of tmp){ scene.remove(m); m.material.dispose(); } }catch(e){}
+  // 画面に重ねる演出も、見えないくらい薄く一度だけ描いておく（初めて出すときの引っかかりを防ぐ）
+  if(!warmFx.dom){ warmFx.dom=true;
+    const els=[['zoneFlash',''],['zoneLines',''],['zoneRing',''],['zoneBig','ZONE'],['justSwipe r',''],['justVig',''],
+      ['justTxt','<b>JUST DODGE!</b><small>ジャスト回避！</small>'],['ctrFlash',''],['ctrLines',''],['ctrBig','COUNTER!!'],['dodgeTxt counter','カウンター！']].map(([c,h])=>{
+      const el=document.createElement('div'); el.className=c; el.innerHTML=h; el.style.animation='none'; el.style.opacity='0.01'; document.body.appendChild(el); return el; });
+    const zf=document.getElementById('zoneFx'); if(zf) zf.style.opacity='0.01';
+    setTimeout(()=>{ for(const el of els) el.remove(); if(zf&&!(zoneT>0)) zf.style.opacity='0'; },300); } }
 function updateGhosts(dt){
   for(let i=ghosts.length-1;i>=0;i--){ const g=ghosts[i]; g.t+=dt; const u=g.t/g.life;
     if(u>=1){ scene.remove(g.m); g.m.material.dispose(); if(g.ring) g.m.geometry.dispose(); ghosts.splice(i,1); continue; }
@@ -3233,8 +3239,8 @@ function startZone(){
   zoneT=ZONE_T; zoneCD=ZONE_CD; zoneAuto=true; zonePunch=1; zoneBeatT=0.35; shake=Math.max(shake,0.35);
   // 画面：白い閃光 → 集中線 → 大きな「ZONE」と「ジャスト回避！」
   const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
-  mk('zoneFlash','',500); mk('zoneLines','',900); mk('zoneRing','',700);
-  mk('zoneBig','<span>Z</span><span>O</span><span>N</span><span>E</span>',1300);
+  mk('zoneFlash','',500); mk('zoneRing','',700);   // 集中線は重さ対策で出さない（閃光と輪で十分目立つ）
+  mk('zoneBig','ZONE',1300);
   // 自分のまわりに光の粒がはじける
   if(player){ emit(player.x,player.y+1.1,player.z,0x7bdff2,45,7,0); emit(player.x,player.y+1.1,player.z,0xffffff,20,4,0); }
   // 音：ドンッという低い衝撃 → 吸い込まれるような音 → キラキラ
@@ -3250,7 +3256,7 @@ let hitStopT=0;
 function counterFx(tg){ const now=performance.now(); if(now-lastCounter<250) return; lastCounter=now;
   const mk=(cls,txt,ms)=>{ const el=document.createElement('div'); el.className=cls; if(txt) el.innerHTML=txt; document.body.appendChild(el); setTimeout(()=>el.remove(),ms); };
   mk('ctrFlash','',350); mk('ctrLines','',600); mk('ctrBig','COUNTER!!',1100);
-  if(!isOnline()) hitStopT=0.09;   // ヒットストップ（オンラインは相手の時間を止められないので無し）
+  if(!isOnline()) hitStopT=0.05;   // ヒットストップ（オンラインは相手の時間を止められないので無し）
   shake=Math.max(shake,0.5); killPunch=Math.max(killPunch,0.7); kick=Math.min(0.15,kick+0.05);
   if(tg){ const y=tg.y+(tg.height||1.8)*0.6, P=new THREE.Vector3(tg.x,y,tg.z), up=new THREE.Vector3(0,1,0);
     emit(tg.x,y,tg.z,0xffd24a,50,9,4); emit(tg.x,y,tg.z,0xff7a1a,35,6,3); emit(tg.x,y,tg.z,0xffffff,20,5,2);
@@ -3348,7 +3354,7 @@ const randOf=a=>a[Math.random()*a.length|0];
 
 // ================= 強化カード（ラウンドの合間に1枚選ぶ。試合中ずっと重なる） =================
 const PERKS=[
- {id:'hp',    rar:'common',icon:'❤️',name:'鋼の肉体',     desc:'最大HP +25',                         ap:e=>{e.maxHp+=25;}},
+ {id:'hp',    rar:'common',icon:'❤️',name:'鋼の肉体',     desc:'最大HP +85',                         ap:e=>{e.maxHp+=85;}},
  {id:'armor', rar:'common',icon:'🦺',name:'防弾ベスト',   desc:'受けるダメージ -15%',                ap:e=>{e.armor*=0.85;}},
  {id:'mag',   rar:'common',icon:'📦',name:'拡張マガジン', desc:'装弾数 +50%',                        ap:e=>{e.magMul*=1.5;}},
  {id:'reload',rar:'common',icon:'⚡',name:'早業リロード', desc:'リロード時間 -35%',                  ap:e=>{e.reloadMul*=0.65;}},
@@ -3358,7 +3364,7 @@ const PERKS=[
  {id:'rate',  rar:'gold',  icon:'🔥',name:'トリガーハッピー',desc:'連射速度 +20%',                   ap:e=>{e.rateMul*=0.83;}},
  {id:'head',  rar:'gold',  icon:'🎯',name:'ヘッドハンター',desc:'ヘッドショットのダメージ 2倍→3倍', ap:e=>{e.headMul+=1;}},
  {id:'melee', rar:'gold',  icon:'🗡️',name:'処刑人',       desc:'近接ダメージ +50%',                  ap:e=>{e.meleeMul*=1.5;}},
- {id:'regen', rar:'gold',  icon:'💚',name:'自己再生',     desc:'3秒間ダメージを受けないと毎秒5回復', ap:e=>{e.regen+=5;}},
+ {id:'regen', rar:'gold',  icon:'💚',name:'自己再生',     desc:'3秒間ダメージを受けないと毎秒17回復', ap:e=>{e.regen+=17;}},
  {id:'djump', rar:'gold',  icon:'🪽',name:'二段ジャンプ', desc:'空中でもう一度ジャンプできる',       ap:e=>{e.airJumps+=1;}},
  {id:'vamp',  rar:'purple',icon:'🩸',name:'吸血',         desc:'与えたダメージの25%だけ回復する',    ap:e=>{e.lifesteal+=0.25;}},
  {id:'last',  rar:'purple',icon:'💢',name:'背水の陣',     desc:'HPが35%以下のとき、与えるダメージ +60%',ap:e=>{e.lastStand+=0.6;}},
@@ -3424,7 +3430,7 @@ function spawnPickup(pk,kind){
 function takePickup(pk,e){
   const k=pk.kind;
   if(e===player&&isOnline()) netSend({t:'take',i:pickups.indexOf(pk)});
-  if(k==='hp') e.hp=Math.min(e.maxHp,e.hp+45);
+  if(k==='hp') e.hp=Math.min(e.maxHp,e.hp+150);
   if(k==='armor') e.shield=50;
   if(k==='power') e.boostT=10;
   if(k==='over'){ e.infT=8; e.ammo=e.weap.mag; e.reloadT=0; }
@@ -3503,7 +3509,7 @@ function applyHabitAI(ai){
   if(hs.includes('right')||hs.includes('left')){ ai.flankPt=freeSpot(AW*0.42,hs.includes('right')?AD*0.8:AD*0.2); ai.flankT=7*a; }
 }
 
-const BASE_HP=150;   // 体力の基本値（長めに戦えるよう 100 → 150）
+const BASE_HP=500;   // 体力の基本値（長めに戦えるよう 100 → 150 → 500）
 function makeFighter(x,z,angle,lo){
   stopChargeSfx();
   return {chargeT:-1,stepCD:0,iframeT:0,dodgeT:0,dodgeDur:0,dodgeKind:null,x,z,y:0,vy:0,r:0.4,hp:BASE_HP,angle,weap:{...lo.gun},melee:lo.melee,util:lo.util,slot:0,prevSlot:1,
@@ -4023,7 +4029,7 @@ function startPractice(){
   for(const h of holes) scene.remove(h); holes=[];
   yaw=-Math.PI/2; pitch=0; deathCam=0; kick=0; vmRec=vmRecV=0; pracGun=gi;
   buildViewmodels(); buildSlots(); hideBanner();
-  state='fight'; paused=false; holdForModels(warmGuns());
+  state='fight'; paused=false; warmFx(); holdForModels(warmGuns());
   const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{});
 }
 // ================= 回避練習モード =================
@@ -4562,12 +4568,12 @@ function findCover(ai,threat){
 function aiUtil(ai,see,d){
   const u=ai.util, p=player; if(ai.utilCount<=0||ai.utilCD>0||ai.healT>0) return;
   switch(u.kind){
-    case 'medkit': if(ai.hp<55&&(!see||Math.random()<0.2)) useUtil(ai); break;
+    case 'medkit': if(ai.hp<ai.maxHp*0.37&&(!see||Math.random()<0.2)) useUtil(ai); break;
     case 'grenade': case 'molotov': case 'flash': {
       const tg=see?{x:p.x,z:p.z}:ai.lastSeen; if(!tg) break;
       const dd=dist(ai,tg); if(dd<5||dd>20) break;
       if((!see&&ai.unseenT>(ai.hunter?0.6:1.2)&&Math.random()<(ai.hunter?0.85:0.5))||(see&&Math.random()<0.12)) useUtil(ai,tg); break; }
-    case 'smoke': if(see&&ai.hp<50&&Math.random()<0.5) useUtil(ai,{x:(ai.x*2+p.x)/3,z:(ai.z*2+p.z)/3}); break;
+    case 'smoke': if(see&&ai.hp<ai.maxHp*0.33&&Math.random()<0.5) useUtil(ai,{x:(ai.x*2+p.x)/3,z:(ai.z*2+p.z)/3}); break;
     case 'mine': if((ai.reloadT>0||ai.coverT>0)&&Math.random()<0.5) useUtil(ai,{x:ai.x+Math.cos(ai.angle)*2,z:ai.z+Math.sin(ai.angle)*2}); break;
     case 'pad': if(!see&&ai.unseenT>2&&Math.random()<0.15) useUtil(ai); break;
   }
@@ -4946,7 +4952,7 @@ function goTitle(){
   hideBanner(); $('sub').style.display='none'; $('toast').style.opacity=0;
   state='title'; showOverlay('title');
 }
-function startMatch(){ initAudio(); if(net&&net.peer){ netReady(); return; } practice=false; for(const t of targets) scene.remove(t.mesh); targets=[]; newGame(); const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{}); }
+function startMatch(){ initAudio(); if(net&&net.peer){ netReady(); return; } practice=false; for(const t of targets) scene.remove(t.mesh); targets=[]; newGame(); warmFx(); const pr=cvs.requestPointerLock(); if(pr&&pr.catch) pr.catch(()=>{}); }
 function showOverlay(kind){
   overlay.style.display='flex'; document.exitPointerLock?.();
   kbOpen=kind==='keys'; if(!kbOpen) kbWait=null;
@@ -5045,7 +5051,7 @@ function updateHUD(){
   else if(p.slot===1){ $('wname').textContent=p.melee.name; $('wname').style.color='#ddd'; $('ammo').innerHTML=p.melee.dash?(p.dashCD>0?'<small>踏み込み準備中</small>':'<small>右クリック：踏み込み</small>'):'<small>近接</small>'; }
   else { $('wname').textContent=p.util.name; $('wname').style.color='#ddd'; $('ammo').innerHTML=p.healT>0?'<small>回復中…</small>':`×${p.utilCount}`; }
   $('hitmark').style.opacity=hitmarkT>0?1:0;
-  $('vignette').style.opacity=Math.max(hurt*0.8,p.hp<35&&p.hp>0?0.35+Math.sin(performance.now()/250)*0.1:0,p.hp<=0?0.8:0);
+  $('vignette').style.opacity=Math.max(hurt*0.8,p.hp<p.maxHp*0.23&&p.hp>0?0.35+Math.sin(performance.now()/250)*0.1:0,p.hp<=0?0.8:0);
   $('heal').style.opacity=p.healT>0?0.6:0;
   $('flash').style.opacity=Math.min(1,p.blindT/1.2);
   const scoped=p.slot===0&&wp.name==='スナイパー'&&adsAmt>0.85&&state==='fight';
@@ -5065,7 +5071,7 @@ function tickFighter(e,dt){
   if(e.boostT>0){ e.boostT-=dt; if(Math.random()<0.4) emit(e.x+rand(-0.3,0.3),e.y+rand(0.2,1.8),e.z+rand(-0.3,0.3),0xff3b5c,1,0.8,-1); }
   if(e.infT>0){ e.infT-=dt; if(Math.random()<0.3) emit(e.x+rand(-0.3,0.3),e.y+rand(0.2,1.8),e.z+rand(-0.3,0.3),0xffc23d,1,0.8,-1); }
   if(e.healT>0){ e.healT-=dt; if(Math.random()<0.3) emit(e.x,e.y+rand(0.3,1.6),e.z,0x40ff90,1,0.6,-1);
-    if(e.healT<=0){ e.hp=Math.min(e.maxHp,e.hp+50); emit(e.x,e.y+1,e.z,0x40ff90,30,2,-1); if(e===player) beep(1000,0.2,0.1,'sine'); } }
+    if(e.healT<=0){ e.hp=Math.min(e.maxHp,e.hp+165); emit(e.x,e.y+1,e.z,0x40ff90,30,2,-1); if(e===player) beep(1000,0.2,0.1,'sine'); } }
   if(e.burstLeft>0){ e.burstT-=dt; if(e.burstT<=0){ if(e.ammo>0&&e.reloadT<=0&&e.hp>0&&e.slot===0){shootOnce(e);e.burstLeft--;e.burstT=0.07;} else e.burstLeft=0; } }
 }
 function update(dt){
@@ -5082,7 +5088,7 @@ function update(dt){
   if(state!=='fight') zoneT=0; zoneCD-=dt; zoneTick(dt); const wdt=dt*zoneScale(); if(zoneT>0) zoneT-=dt;
   if(state==='fight'&&practice){
     tickFighter(player,dt); updatePlayer(dt); updateBullets(wdt,dt); updateThrows(wdt); updateZones(wdt); if(prac.dodge) updateDrill(wdt); else updateTargets(wdt);
-    if(player.hp<player.maxHp) player.hp=Math.min(player.maxHp,Math.max(1,player.hp+40*dt));   // 練習中は倒れない
+    if(player.hp<player.maxHp) player.hp=Math.min(player.maxHp,Math.max(1,player.hp+130*dt));   // 練習中は倒れない
     updatePracHUD();
   } else if(state==='fight'&&isOnline()){
     tickFighter(player,dt); tickFighter(rival,dt);
@@ -5150,7 +5156,7 @@ function render(){
   flashMesh.visible=flashT>0; flashMesh.rotation.z=Math.random()*6; flashLight.intensity=flashT>0?6:0;
   updatePlayerBody(p,tw);
   { const zf=document.getElementById('zoneFx'), o=zoneT>0?String(clamp(zoneT/0.35,0,1)):'0'; if(zf.style.opacity!==o) zf.style.opacity=o;   // ゾーン中は画面のふちが青く光る
-    const fl=zoneT>0?'saturate(.45) contrast(1.18) brightness(1.06) hue-rotate(-8deg)':''; if(cvs.style.filter!==fl) cvs.style.filter=fl; }   // 色を抜いて青白く
+  }
   // ライバル
   const rm=rivalModel; rm.root.position.set(rival.x,rival.y,rival.z); rm.root.rotation.y=-rival.angle;
   rm.root.visible=!inMenu()&&!practice;
@@ -5265,6 +5271,7 @@ function palmAmbient(){
     palmGain.gain.cancelScheduledValues(t); palmGain.gain.setValueAtTime(palmGain.gain.value,t); palmGain.gain.linearRampToValueAtTime(0,t+0.35); s.stop(t+0.4); palmSrc=null; } }
 
 loadStage(sel.stage<0?0:sel.stage);
+warmFx();
 player=makeFighter(4,AD/2,0,{gun:GUNS[0],melee:MELEES[0],util:UTILS[0]});
 rival=makeFighter(AW-4,AD/2,Math.PI,{gun:GUNS[0],melee:MELEES[0],util:UTILS[0]});
 const titleLoop=()=>{ if(state==='title'||state==='select'||state==='stage'){ const t=performance.now()/9000; yaw=t; pitch=-0.25; player.x=AW/2+Math.sin(t)*14; player.z=AD/2+Math.cos(t)*10; player.y=4; } requestAnimationFrame(titleLoop); };
